@@ -5,14 +5,34 @@ def SATsolver(sud_input, rules_input):
     Solve a sudoku
     '''
 
-    # read the sudoku input
+    # TODO read the rules
+
+    with open(rules_input, 'r') as f:
+        lines = f.read().splitlines()
+        print(lines)
+
+        # for each word in the line:
+        for line in lines:
+            # print the word
+            vars = line.split()
+            print(vars)
+
+        f.close()
 
 
-    # read the rules
+    # TODO create dictionary with all variables
 
+    # TODO read the sudoku input and alter variables
 
-    # create clausules of a solved sudoku
+    # TODO solve
+
+    # simplify using rules
+
+    # split if necessary
+
+    # rinse and repeat
 
     return
 
 
+SATsolver("output.txt", "sudoku-rules.txt")

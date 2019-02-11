@@ -6,17 +6,34 @@ def SATsolver(sud_input, rules_input):
     '''
 
     # TODO read the rules
-
+    problem = []
+    nr_variables = ""
+    nr_rules = ""
     with open(rules_input, 'r') as f:
         lines = f.read().splitlines()
 
+        firstline = True
+
         # for each word in the line:
         for line in lines:
-            # print the word
-            vars = line.split()
-            print(vars)
+            if firstline:
+                info = line.split()
+                nr_variables = info[2]
+                nr_rules = info[3]
+                firstline = False
+                continue
 
-        f.close()
+            rule = line.split()
+
+            del rule[-1]
+
+            rule = [int(i) for i in rule]
+
+            problem.append(rule)
+
+
+
+
 
 
     # TODO create dictionary with all variables

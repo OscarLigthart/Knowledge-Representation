@@ -1,3 +1,5 @@
+import itertools as it
+
 
 def SATsolver(sud_input, rules_input):
     '''
@@ -14,12 +16,44 @@ def SATsolver(sud_input, rules_input):
         for line in lines:
             # print the word
             vars = line.split()
-            print(vars)
 
         f.close()
 
 
     # TODO create dictionary with all variables
+
+    '''
+    var_count = '999'
+
+    var_values = {}
+
+    # dit moet gegeneraliseerd:
+    
+    for i in range(int(var_count[0])):
+        for j in range(int(var_count[1])):
+            for h in range(int(var_count[2])):
+                print(i+1,j+1,h+1)
+
+
+    for i in range(len(var_count)):
+        for j in range(int(var_count[i])):
+            print(i+1, j+1)
+
+    # Get all combinations of [1, 2, 3]
+    # and length 2
+    comb = it.permutations(range(1, 10), len(var_count))
+    print(len(list(comb)))
+
+    count = 0
+    for p in it.product(range(int(var_count[0])), repeat=len(var_count)):
+        print(p)
+        count += 1
+
+    print(count)
+    '''
+
+
+
 
     # TODO read the sudoku input and alter variables
 

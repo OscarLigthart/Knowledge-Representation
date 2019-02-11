@@ -98,9 +98,30 @@ def SATsolver(sud_input, rules_input):
     count = 0
     while len(problem) > 0 and count < 1:
         count += 1
+        print(len(problem))
         # step 1, simplify using initial sudoku
-        pass
+
+        for i, clause in enumerate(problem):
+            for j, literal in enumerate(clause):
+                if abs(literal) in data['true']:
+                    # check if it is a negative, remove the literal if it is a negative
+                    if literal < 0:
+                        del problem[i][j]
+                    # remove the clause if literal within is true
+                    else:
+                        del problem[i]
+
+                elif abs(literal) in data['false']:
+                    # check if it is a positive, remove the literal if it is a positive
+                    if literal > 0:
+                        del problem[i][j]
+                    # remove the clause if literal within is false
+                    else:
+                        del problem[i]
+
         # step 2, simplify using rules
+
+        print(len(problem))
 
         # step 3, split if necessary
 

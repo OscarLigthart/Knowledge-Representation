@@ -9,7 +9,6 @@ def SATsolver(sud_input, rules_input):
 
     with open(rules_input, 'r') as f:
         lines = f.read().splitlines()
-        print(lines)
 
         # for each word in the line:
         for line in lines:

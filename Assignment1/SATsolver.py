@@ -121,7 +121,66 @@ def SATsolver(sud_input, rules_input):
 
         # step 2, simplify using rules
 
-        print(len(problem))
+        # print(len(problem))
+        #
+        # print(data["unk"])
+
+        true_list = set()
+        false_list = set()
+        test_problem = [[1, 2],[-2, 2],[1, 3, 4, -3],[1]] # problem
+        test_variables = {1,2,3,4}    # data["unk"]
+
+        pure_literal_dict = {}
+        for variable in test_variables:
+            pure_literal_dict[variable] = {"pos": 0, "neg": 0}
+
+
+        simplified_problem = []
+        lit_to_remove = []
+        for i, clause in enumerate(test_problem):
+            pos = False
+            neg = False
+            remove = False
+
+            # unit clause
+            if len(clause) == 1:
+                lit = clause[0]
+                assign_to = True
+                if lit < 0:
+                    lit = abs(lit)
+                    assign_to = False
+                test_variables.remove(lit)
+                if assign_to == True:
+                    true_list.add(lit)
+                else:
+                    false_list.add(lit)
+
+                remove = True
+
+            # tautology
+            for literal in clause:
+
+                for variable in test_variables:
+
+                    if variable == literal:
+                        pos = True
+                        pure_literal_dict[variable]["pos"] += 1
+
+                    elif -variable == literal:
+                        neg = True
+                        pure_literal_dict[variable]["neg"] += 1
+
+                if pos and neg:
+                    remove = True
+
+            if not remove:
+                simplified_problem.append(clause)
+
+        print(pure_literal_dict)
+        print("simple",simplified_problem)
+        print(test_variables)
+        print(true_list)
+
 
         # step 3, split if necessary
 

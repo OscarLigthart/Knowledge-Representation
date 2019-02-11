@@ -1,4 +1,5 @@
 import itertools as it
+import numpy as np
 
 
 def SATsolver(sud_input, rules_input):
@@ -35,7 +36,15 @@ def SATsolver(sud_input, rules_input):
             problem.append(rule)
 
 
-    # TODO create dictionary with all variables
+    # TODO GENERALIZE
+
+    variables = list(set(abs(var) for clause in problem for var in clause))
+    data = {'true': [], 'false': [], 'unk': []}
+
+    # set all variables to unknown
+    for var in variables:
+        data['unk'].append(var)
+
 
     '''
     var_count = '999'
@@ -67,18 +76,35 @@ def SATsolver(sud_input, rules_input):
     print(count)
     '''
 
+    # TODO GENERALIZE
 
+    with open(sud_input, 'r') as f:
+        lines = f.read().splitlines()
 
+        print(lines)
 
-    # TODO read the sudoku input and alter variables
+        for line in lines:
 
+            rule = line.split()
+            del rule[-1]
+
+            for var in rule:
+                data['true'].append(int(var))
+
+    print(data)
     # TODO solve
 
-    # simplify using rules
+    # keep track of count to prevent infinite loop
+    count = 0
+    while len(problem) > 0 and count < 1:
+        count += 1
+        # step 1, simplify using initial sudoku
+        pass
+        # step 2, simplify using rules
 
-    # split if necessary
+        # step 3, split if necessary
 
-    # rinse and repeat
+        # step 4, rinse and repeat
 
     return
 

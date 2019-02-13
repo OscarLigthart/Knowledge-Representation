@@ -100,6 +100,7 @@ def SATsolver(sud_input, rules_input):
             problem.append(rule)
 
 
+
     # TODO GENERALIZE
 
     variables = list(set(abs(var) for clause in problem for var in clause))
@@ -108,6 +109,7 @@ def SATsolver(sud_input, rules_input):
     # set all variables to unknown
     for var in variables:
         data['unk'].append(var)
+
 
 
     '''
@@ -145,8 +147,6 @@ def SATsolver(sud_input, rules_input):
     with open(sud_input, 'r') as f:
         lines = f.read().splitlines()
 
-        print(lines)
-
         for line in lines:
 
             rule = line.split()
@@ -155,20 +155,26 @@ def SATsolver(sud_input, rules_input):
             for var in rule:
                 data['true'].append(int(var))
 
-    print(data)
     # TODO solve
 
     # keep track of count to prevent infinite loop
     count = 0
-    while len(problem) > 0 and count < 1:
+
+    # initialize dictionary
+    pure_literal_dict = {}
+
+    while len(problem) > 0 and count < 2:
         count += 1
 
-        #########################################
-        # step 1, simplify using initial sudoku #
-        #########################################
+        ###############################################
+        # step 1, simplify using true/false variables #
+        ###############################################
+
+        new_problem = []
 
         for i, clause in enumerate(problem):
-
+            new_clause = clause
+            remove = False
             for j, literal in enumerate(clause):
 
                 # TODO check if right elements are deleted
@@ -177,33 +183,103 @@ def SATsolver(sud_input, rules_input):
                     # check if it is a negative, remove the literal if it is a negative
                     # TODO create function for this
                     if literal < 0:
-                        del problem[i][j]
+                        # remove literal from clause
+                        del new_clause[j]
 
                     # remove the clause if literal within is true
                     else:
-                        del problem[i]
+                        remove = True
 
                 elif abs(literal) in data['false']:
                     # check if it is a positive, remove the literal if it is a positive
                     if literal > 0:
-                        del problem[i][j]
+                        del new_clause[j]
 
                     # remove the clause if literal within is false
                     else:
-                        del problem[i]
+                        remove = True
+
+            if not remove:
+                new_problem.append(new_clause)
+
+        problem = new_problem
 
         ################################
         # step 2, simplify using rules #
         ################################
 
-        # unit clause simplification
+        # reset dictionary
+        for var in variables:
+            pure_literal_dict[var] = {"pos": 0, "neg": 0}
+
+        # keep track of what the new problem will hold
+        new_problem = []
+
+        # loop through problem
         for i, clause in enumerate(problem):
+
+            ##############################
+            # unit clause simplification #
+            ##############################
+
             if len(clause) == 1:
                 data = unit_clause_simplification(problem, data, i)
 
+            ###############################
+            # Tautology and pure literals #
+            ###############################
+
+            taut = False
+            for literal in clause:
+                # if the counter part of a literal is within the clause, there exists a tautology
+                if (literal * - 1) in clause:
+                    taut = True
+
+                # TODO, count klopt nog niet
+                # keep track of positive and negative occurences of literals to find pure literals
+                if literal > 0:
+                    pure_literal_dict[abs(literal)]["pos"] += 1
+
+                elif literal < 0:
+                    pure_literal_dict[abs(literal)]["neg"] += 1
+
+            if not taut:
+                new_problem.append(clause)
+
+        problem = new_problem
+
+        # SANITY CHECK FOR PURE LITERALS
+        """
+        for clause in problem:
+            for literal in clause:
+                if abs(literal) == 898:
+                    print(clause)
+        """
+
+        # loop through the pure literal dict to find whether we have pure literals
+        for literal in pure_literal_dict:
+            pos = pure_literal_dict[literal]["pos"]
+            neg = pure_literal_dict[literal]["neg"]
+
+            # check whether one of them is equal to 0:
+            # if there are no positives, set the literal to false
+            if pos == 0 and pos != neg:
+                data['false'].append(literal)
+                try:
+                    data['unk'].remove(literal)
+                except:
+                    pass
+
+            # if there are no negatives, set the literal to true
+            elif neg == 0 and pos != neg:
+                data['true'].append(literal)
+                try:
+                    data['unk'].remove(literal)
+                except:
+                    pass
+
         data['false'] = list(set(data['false']))
         data['true'] = list(set(data['true']))
-
 
         # sanity check
         # TODO, check if lists hold unique elements accross, element can't be true and false
@@ -218,18 +294,19 @@ def SATsolver(sud_input, rules_input):
 
             # save current state (as node)
 
-
             # apply split
             # pick random value from unknowns and set it to either true or false
             literal = random.choice(data['unk'])
             data['unk'].remove(literal)
 
-            if random.random >= 0.5:
+            if random.random() >= 0.5:
                 data['true'].append(literal)
             else:
                 data['false'].append(literal)
 
-
+        
+        #
+        # print(data["unk"])
 
 
         ############################

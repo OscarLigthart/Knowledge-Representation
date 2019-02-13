@@ -6,9 +6,11 @@ class Node:
     """
     Class Node
     """
-    def __init__(self, dictionary):
+    def __init__(self, bool_data, problem, literal):
         self.left = None
-        self.data = dictionary
+        self.literal = literal
+        self.data = bool_data
+        self.problem = problem
         self.right = None
 
 class Tree:
@@ -16,27 +18,37 @@ class Tree:
     Class tree will provide a tree as well as utility functions.
     """
 
-    def createNode(self, data):
+    def createNode(self, bool_data, problem, literal):
         """
         Utility function to create a node.
         """
-        return Node(data)
+        return Node(literal, bool_data, problem)
 
-    def insert(self, node , data):
+    def insert(self, node, bool_data, problem, bool, literal):
         """
         Insert function will insert a node into tree.
         Duplicate keys are not allowed.
         """
         #if tree is empty , return a root node
         if node is None:
-            return self.createNode(data)
+            return self.createNode(bool_data, problem, literal)
         # if data is smaller than parent , insert it into left side
-        if data < node.data:
-            node.left = self.insert(node.left, data)
-        elif data > node.data:
-            node.right = self.insert(node.right, data)
+        # TODO: measure when left and when right
+        if bool == 1:
+            node.left = self.insert(node.left, bool_data, problem, bool, literal)
+        elif bool == 0:
+            node.right = self.insert(node.right, bool_data, problem, bool, literal)
 
         return node
+
+    def traverseInorder(self, root):
+        """
+        traverse function will print all the node in the tree.
+        """
+        if root is not None:
+            self.traverseInorder(root.left)
+            print(root.data)
+            self.traverseInorder(root.right)
 
 def unit_clause_simplification(problem, data, it):
     """
@@ -110,38 +122,6 @@ def SATsolver(sud_input, rules_input):
     for var in variables:
         data['unk'].append(var)
 
-
-
-    '''
-    var_count = '999'
-
-    var_values = {}
-
-    # dit moet gegeneraliseerd:
-    
-    for i in range(int(var_count[0])):
-        for j in range(int(var_count[1])):
-            for h in range(int(var_count[2])):
-                print(i+1,j+1,h+1)
-
-
-    for i in range(len(var_count)):
-        for j in range(int(var_count[i])):
-            print(i+1, j+1)
-
-    # Get all combinations of [1, 2, 3]
-    # and length 2
-    comb = it.permutations(range(1, 10), len(var_count))
-    print(len(list(comb)))
-
-    count = 0
-    for p in it.product(range(int(var_count[0])), repeat=len(var_count)):
-        print(p)
-        count += 1
-
-    print(count)
-    '''
-
     # TODO GENERALIZE
 
     with open(sud_input, 'r') as f:
@@ -163,7 +143,15 @@ def SATsolver(sud_input, rules_input):
     # initialize dictionary
     pure_literal_dict = {}
 
-    while len(problem) > 0 and count < 2:
+    # create tree to keep track of splits made
+    root = None
+    path = Tree()
+    root = path.insert(root, data, problem, 0, 0)
+
+    #node, bool_data, dictionary
+
+    # loop while the problem is still not solved
+    while len(problem) > 0 and count < 100:
         count += 1
 
         ###############################################
@@ -173,9 +161,11 @@ def SATsolver(sud_input, rules_input):
         new_problem = []
 
         for i, clause in enumerate(problem):
-            new_clause = clause
+            new_clause = list(np.copy(clause))
+
             remove = False
             for j, literal in enumerate(clause):
+
 
                 # TODO check if right elements are deleted
                 if abs(literal) in data['true']:
@@ -183,8 +173,8 @@ def SATsolver(sud_input, rules_input):
                     # check if it is a negative, remove the literal if it is a negative
                     # TODO create function for this
                     if literal < 0:
-                        # remove literal from clause
-                        del new_clause[j]
+                        # remove literal from clause, don't use INDEX!
+                        new_clause.remove(literal)
 
                     # remove the clause if literal within is true
                     else:
@@ -193,7 +183,7 @@ def SATsolver(sud_input, rules_input):
                 elif abs(literal) in data['false']:
                     # check if it is a positive, remove the literal if it is a positive
                     if literal > 0:
-                        del new_clause[j]
+                        new_clause.remove(literal)
 
                     # remove the clause if literal within is false
                     else:
@@ -235,7 +225,6 @@ def SATsolver(sud_input, rules_input):
                 if (literal * - 1) in clause:
                     taut = True
 
-                # TODO, count klopt nog niet
                 # keep track of positive and negative occurences of literals to find pure literals
                 if literal > 0:
                     pure_literal_dict[abs(literal)]["pos"] += 1
@@ -248,16 +237,20 @@ def SATsolver(sud_input, rules_input):
 
         problem = new_problem
 
-        # SANITY CHECK FOR PURE LITERALS
+        # SANiTY CHECK FOR PURE LITERALS
         """
-        for clause in problem:
-            for literal in clause:
-                if abs(literal) == 898:
+        for i, clause in enumerate(problem):
+            for j, literal in enumerate(clause):
+                if literal == 114:
                     print(clause)
+                    print(i)
+                    print(count)
         """
 
-        # loop through the pure literal dict to find whether we have pure literals
+
+       # loop through the pure literal dict to find whether we have pure literals
         for literal in pure_literal_dict:
+
             pos = pure_literal_dict[literal]["pos"]
             neg = pure_literal_dict[literal]["neg"]
 
@@ -283,37 +276,50 @@ def SATsolver(sud_input, rules_input):
 
         # sanity check
         # TODO, check if lists hold unique elements accross, element can't be true and false
-        #print(data['false'])
 
         ##############################
         # step 3, split if necessary #
         ##############################
 
         # check if necessary
-        if len(problem) > 1:
-
-            # save current state (as node)
+        if len(problem) > 0:
 
             # apply split
             # pick random value from unknowns and set it to either true or false
-            literal = random.choice(data['unk'])
-            data['unk'].remove(literal)
+            if len(data['unk']) > 0:
+                literal = random.choice(data['unk'])
 
-            if random.random() >= 0.5:
-                data['true'].append(literal)
+                data['unk'].remove(literal)
+
+                if random.random() >= 0.5:
+                    data['true'].append(literal)
+                    val = 1
+                else:
+                    data['false'].append(literal)
+                    val = 0
+
+                # save current state (as node)
+                path.insert(root, data, problem, val, literal)
+
+            # if there are no more unknowns, traverse back through the tree and try different splits
             else:
-                data['false'].append(literal)
+                # need a backtracking function for the tree
+                pass
 
-        
-        #
-        # print(data["unk"])
-
+        # check if dead end!
+        # might go wrong because of this? why?
 
         ############################
         # step 4, rinse and repeat #
         ############################
 
+
+    path.traverseInorder(root)
+    print(len(data['true']))
+
     return
 
 
-SATsolver("output.txt", "sudoku-rules.txt")
+solution = SATsolver("output.txt", "sudoku-rules.txt")
+
+print(solution)

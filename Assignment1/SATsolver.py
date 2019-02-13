@@ -29,7 +29,7 @@ class Tree:
         Insert function will insert a node into tree.
         Duplicate keys are not allowed.
         """
-        #if tree is empty , return a root node
+        # if tree is empty , return a root node
         if node is None:
             return self.createNode(bool_data, problem, literal)
         # if data is smaller than parent , insert it into left side
@@ -41,13 +41,27 @@ class Tree:
 
         return node
 
+    def search(self, node, data):
+        """
+        Search function will search a node into tree.
+        """
+        # if root is None or root is the search data.
+        if node is None or node.data == data:
+            return node
+
+        if node.data < data:
+            return self.search(node.right, data)
+        else:
+            return self.search(node.left, data)
+
     def traverseInorder(self, root):
         """
         traverse function will print all the node in the tree.
         """
         if root is not None:
             self.traverseInorder(root.left)
-            print(root.data)
+            print(root.left)
+            print(root.right)
             self.traverseInorder(root.right)
 
 def unit_clause_simplification(problem, data, it):
@@ -304,7 +318,10 @@ def SATsolver(sud_input, rules_input):
             # if there are no more unknowns, traverse back through the tree and try different splits
             else:
                 # need a backtracking function for the tree
-                pass
+                path.traverseInorder(root)
+
+        else:
+            break
 
         # check if dead end!
         # might go wrong because of this? why?
@@ -313,8 +330,6 @@ def SATsolver(sud_input, rules_input):
         # step 4, rinse and repeat #
         ############################
 
-
-    path.traverseInorder(root)
     print(len(data['true']))
 
     return

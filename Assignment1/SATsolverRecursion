@@ -1,0 +1,331 @@
+import itertools as it
+import numpy as np
+import random
+
+def update_problem(problem, variable, assignement):
+
+    # go through problem and assign literal and update clauses
+    for clause in problem:
+        if variable in clause:
+
+    return problem
+
+
+    # update dict
+
+
+
+def unit_clause_simplification(problem, partial_assignment, pure_literal_dict):
+
+    unit_clause_in_problem = True
+    pure_literal_in_problem = True
+
+    while (problem != [] and (unit_clause_in_problem or pure_literal_in_problem)):
+
+        # check for pure literal
+
+        for variable in pure_literal_dict:
+
+            pos = pure_literal_dict[variable]["pos"]
+            neg = pure_literal_dict[variable]["neg"]
+
+            # check whether one of them is equal to 0:
+            # if there are no positives, set the literal to false
+            if pos == 0 and pos != neg:
+                partial_assignment['false'].add(variable)
+                update_problem(problem, variable, False)
+
+
+            # if there are no negatives, set the literal to true
+            elif neg == 0 and pos != neg:
+                partial_assignment['true'].add(variable)
+                update_problem(problem, variable, True)
+
+
+        for clause in problem:
+            if len(clause) == 1:
+
+                literal = clause[0]
+
+                if literal < 0:
+                    partial_assignment["false"].add(abs(literal))
+                    update_problem(problem, abs(literal), False)
+                else:
+                    partial_assignment["true"].add(abs(literal))
+                    update_problem(problem, abs(literal), True)
+
+
+
+        # if nothing has changed
+            unit_clause_exists = False
+
+    return problem, partial_assignment, pure_literal_dict
+
+
+
+def recursive_DP(problem, partial_assignment, pure_literal_dict):
+
+    problem, partial_assignment, pure_literal_dict = unit_clause_simplification(problem, partial_assignment, pure_literal_dict)
+
+    if # contains empty clause: unsatisfied --> backtrack
+    if problem == []:
+        return partial_assignment # this is the result
+    else:
+
+
+
+
+
+def SATsolver(sud_input, rules_input):
+    '''
+    This function takes as input the DIMACS format of a sudoku and the DIMACS format of the sudoku rules to correctly
+    Solve a sudoku
+    '''
+
+
+    # get the set of clauses to satisfy
+    problem = []
+    nr_variables = ""
+    nr_rules = ""
+    with open(rules_input, 'r') as f:
+        lines = f.read().splitlines()
+        #TODO needs also the read in file with e.g. comments add start
+
+        firstline = True
+
+        # for each word in the line:
+        for line in lines:
+
+            if firstline:
+                info = line.split()
+                nr_variables = info[2]
+                nr_rules = info[3]
+                firstline = False
+                continue
+
+            rule = line.split()
+
+            del rule[-1]
+
+            rule = [int(i) for i in rule]
+
+            problem.append(rule)
+
+
+
+    partial_assignment = {'true': set(), 'false': set()}
+
+    # TODO GENERALIZE
+    # the numbers where the Sudoku starts with are fixed and therefore always True
+    with open(sud_input, 'r') as f:
+        lines = f.read().splitlines()
+
+        for line in lines:
+
+            rule = line.split()
+            del rule[-1]
+
+            for var in rule:
+                partial_assignment['true'].add(int(var))
+
+    variables = list(set(abs(var) for clause in problem for var in clause)) ## WAarom list ?
+
+    # apply tautology and create dict to keep track of pure literals
+    pure_literal_dict = {}
+    for var in variables:
+        pure_literal_dict[var] = {"pos": 0, "neg": 0}
+
+
+    new_problem = []
+
+    for clause in problem:
+        new_clause = list(np.copy(clause))
+
+        clause_satisfied = False
+        for literal in clause:
+
+            # if the counter part of a literal is within the clause, there exists a tautology
+            if (literal * - 1) in clause:
+                # so clause will always be satisfied
+                clause_satisfied = True
+
+                break # no need to further investigate this literal in this clause since clause is already satisfied
+
+            # keep track of positive and negative occurences of literals to find pure literals
+            if literal > 0:
+                pure_literal_dict[abs(literal)]["pos"] += 1
+
+            elif literal < 0:
+                pure_literal_dict[abs(literal)]["neg"] += 1
+
+
+            # TODO check if right elements are deleted
+            if abs(literal) in partial_assignment['true']:
+
+                # check if it is a negative, remove the literal if it is a negative
+                # TODO create function for this
+                if literal < 0:
+                    # remove literal from clause, don't use INDEX!
+                    new_clause.remove(literal)
+
+                # literal within is true, this means the clause is True
+                else:
+                    clause_satisfied = True
+
+            elif abs(literal) in partial_assignment['false']:
+                # check if it is a positive, remove the literal from clause if it is a positive
+                if not literal < 0:
+                    new_clause.remove(literal)
+
+                # literal within is false, which means the clause is True
+                else:
+                    clause_satisfied = True
+
+        # only keep the unsatisfied clauses
+        if not clause_satisfied:
+            new_problem.append(new_clause)
+
+    problem = new_problem
+
+    print(problem)
+
+    recursive_DP(problem, partial_assignment, pure_literal_dict)
+
+
+    return
+
+
+solution = SATsolver("output.txt", "sudoku-rules.txt")
+
+
+
+        # ################################
+        # # step 2, simplify using rules #
+        # ################################
+        #
+        # # reset dictionary
+        # for var in variables:
+        #     pure_literal_dict[var] = {"pos": 0, "neg": 0}
+        #
+        # # keep track of what the new problem will hold
+        # new_problem = []
+        #
+        # # loop through problem
+        # for i, clause in enumerate(problem):
+        #
+        #     ##############################
+        #     # unit clause simplification #
+        #     ##############################
+        #
+        #     if len(clause) == 1:
+        #         data = unit_clause_simplification(problem, data, i)
+        #
+        #     ###############################
+        #     # Tautology and pure literals #
+        #     ###############################
+        #
+        #     taut = False
+        #     for literal in clause:
+        #         # if the counter part of a literal is within the clause, there exists a tautology
+        #         if (literal * - 1) in clause:
+        #             taut = True
+        #
+        #         # keep track of positive and negative occurences of literals to find pure literals
+        #         if literal > 0:
+        #             pure_literal_dict[abs(literal)]["pos"] += 1
+        #
+        #         elif literal < 0:
+        #             pure_literal_dict[abs(literal)]["neg"] += 1
+        #
+        #     if not taut:
+        #         new_problem.append(clause)
+        #
+        # problem = new_problem
+        #
+        # # SANiTY CHECK FOR PURE LITERALS
+        # """
+        # for i, clause in enumerate(problem):
+        #     for j, literal in enumerate(clause):
+        #         if literal == 114:
+        #             print(clause)
+        #             print(i)
+        #             print(count)
+        # """
+
+#
+#        # loop through the pure literal dict to find whether we have pure literals
+#         for literal in pure_literal_dict:
+#
+#             pos = pure_literal_dict[literal]["pos"]
+#             neg = pure_literal_dict[literal]["neg"]
+#
+#             # check whether one of them is equal to 0:
+#             # if there are no positives, set the literal to false
+#             if pos == 0 and pos != neg:
+#                 data['false'].append(literal)
+#                 try:
+#                     data['unk'].remove(literal)
+#                 except:
+#                     pass
+#
+#             # if there are no negatives, set the literal to true
+#             elif neg == 0 and pos != neg:
+#                 data['true'].append(literal)
+#                 try:
+#                     data['unk'].remove(literal)
+#                 except:
+#                     pass
+#
+#         data['false'] = list(set(data['false']))
+#         data['true'] = list(set(data['true']))
+#
+#         # sanity check
+#         # TODO, check if lists hold unique elements accross, element can't be true and false
+#
+#         ##############################
+#         # step 3, split if necessary #
+#         ##############################
+#
+#         # check if necessary
+#         if len(problem) > 0:
+#
+#             # apply split
+#             # pick random value from unknowns and set it to either true or false
+#             if len(data['unk']) > 0:
+#                 literal = random.choice(data['unk'])
+#
+#                 data['unk'].remove(literal)
+#
+#                 if random.random() >= 0.5:
+#                     data['true'].append(literal)
+#                     val = 1
+#                 else:
+#                     data['false'].append(literal)
+#                     val = 0
+#
+#                 # save current state (as node)
+#                 path.insert(root, data, problem, val, literal)
+#
+#             # if there are no more unknowns, traverse back through the tree and try different splits
+#             else:
+#                 # need a backtracking function for the tree
+#                 path.traverseInorder(root)
+#
+#         else:
+#             break
+#
+#         # check if dead end!
+#         # might go wrong because of this? why?
+#
+#         ############################
+#         # step 4, rinse and repeat #
+#         ############################
+#
+#     print(len(data['true']))
+#
+#     return
+#
+#
+# solution = SATsolver("output.txt", "sudoku-rules.txt")
+#
+# print(solution)

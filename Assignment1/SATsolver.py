@@ -1,48 +1,7 @@
 import itertools as it
 import numpy as np
 import random
-
-class Node:
-    """
-    Class Node
-    """
-    def __init__(self, bool_data, problem, literal):
-        self.left = None
-        self.literal = literal
-        self.data = bool_data
-        self.problem = problem
-        self.right = None
-
-
-
-class Tree:
-    """
-    Class tree will provide a tree as well as utility functions.
-    """
-
-    def createNode(self, bool_data, problem, literal):
-        """
-        Utility function to create a node.
-        """
-        return Node(literal, bool_data, problem)
-
-    def insert(self, node, bool_data, problem, bool, literal):
-        """
-        Insert function will insert a node into tree.
-        Duplicate keys are not allowed.
-        """
-
-
-        return node
-
-
-    def backtrack(self, current_node):
-        """
-        traverse function will print all the node in the tree.
-        """
-        pass
-        # return parent_node
-
+import time
 
 def unit_clause_simplification(problem, data, it):
     """
@@ -72,84 +31,19 @@ def unit_clause_simplification(problem, data, it):
     return data
 
 
-def SATsolver(sud_input, rules_input):
-    '''
-    This function takes as input the DIMACS format of a sudoku and the DIMACS format of the sudoku rules to correctly
-    Solve a sudoku
-    '''
-
-    # TODO read the rules
-    problem = []
-    nr_variables = ""
-    nr_rules = ""
-    with open(rules_input, 'r') as f:
-        lines = f.read().splitlines()
-
-        firstline = True
-
-        # for each word in the line:
-        for line in lines:
-
-            if firstline:
-                info = line.split()
-                nr_variables = info[2]
-                nr_rules = info[3]
-                firstline = False
-                continue
-
-            rule = line.split()
-
-            del rule[-1]
-
-            rule = [int(i) for i in rule]
-
-            problem.append(rule)
-
-
-
-    # TODO GENERALIZE
-
-    variables = list(set(abs(var) for clause in problem for var in clause))
-    data = {'true': [], 'false': [], 'unk': []}
-
-    # set all variables to unknown
-    for var in variables:
-        data['unk'].append(var)
-
-    # TODO GENERALIZE
-
-    with open(sud_input, 'r') as f:
-        lines = f.read().splitlines()
-
-        for line in lines:
-
-            rule = line.split()
-            del rule[-1]
-
-            for var in rule:
-
-                print(var)
-                data['true'].append(int(var))
-
-    # TODO solve
-
-    # keep track of count to prevent infinite loop
-    count = 0
+def simplify_clauses(problem, data, variables):
 
     # initialize dictionary
     pure_literal_dict = {}
 
-    # create tree to keep track of splits made
-    root = None
-    path = Tree()
-    root = path.insert(root, data, problem, 0, 0)
+    # initialize variable to indicate whether the problem can still be simplified
+    simplifiable = True
 
-    #node, bool_data, dictionary
+    count = 0
+    # loop while the problem still shows some changes
+    while len(problem) > 0 and simplifiable:
 
-    # loop while the problem is still not solved
-    while len(problem) > 0 and count < 100:
-        count += 1
-
+        simplifiable = False
         ###############################################
         # step 1, simplify using true/false variables #
         ###############################################
@@ -162,7 +56,6 @@ def SATsolver(sud_input, rules_input):
             remove = False
             for j, literal in enumerate(clause):
 
-
                 # TODO check if right elements are deleted
                 if abs(literal) in data['true']:
 
@@ -171,24 +64,31 @@ def SATsolver(sud_input, rules_input):
                     if literal < 0:
                         # remove literal from clause, don't use INDEX!
                         new_clause.remove(literal)
+                        simplifiable = True
 
                     # remove the clause if literal within is true
                     else:
                         remove = True
+                        simplifiable = True
 
                 elif abs(literal) in data['false']:
                     # check if it is a positive, remove the literal if it is a positive
                     if literal > 0:
                         new_clause.remove(literal)
+                        simplifiable = True
 
                     # remove the clause if literal within is false
                     else:
                         remove = True
+                        simplifiable = True
 
+            # append new clause to new problem
             if not remove:
                 new_problem.append(new_clause)
 
+        # save changed problem
         problem = new_problem
+
 
         ################################
         # step 2, simplify using rules #
@@ -220,6 +120,7 @@ def SATsolver(sud_input, rules_input):
                 # if the counter part of a literal is within the clause, there exists a tautology
                 if (literal * - 1) in clause:
                     taut = True
+                    simplifiable = True
 
                 # keep track of positive and negative occurences of literals to find pure literals
                 if literal > 0:
@@ -233,18 +134,7 @@ def SATsolver(sud_input, rules_input):
 
         problem = new_problem
 
-        # SANiTY CHECK FOR PURE LITERALS
-        """
-        for i, clause in enumerate(problem):
-            for j, literal in enumerate(clause):
-                if literal == 114:
-                    print(clause)
-                    print(i)
-                    print(count)
-        """
-
-
-       # loop through the pure literal dict to find whether we have pure literals
+        # loop through the pure literal dict to find whether we have pure literals
         for literal in pure_literal_dict:
 
             pos = pure_literal_dict[literal]["pos"]
@@ -259,6 +149,8 @@ def SATsolver(sud_input, rules_input):
                 except:
                     pass
 
+                simplifiable = True
+
             # if there are no negatives, set the literal to true
             elif neg == 0 and pos != neg:
                 data['true'].append(literal)
@@ -267,56 +159,295 @@ def SATsolver(sud_input, rules_input):
                 except:
                     pass
 
+                simplifiable = True
+
         data['false'] = list(set(data['false']))
         data['true'] = list(set(data['true']))
 
-        # sanity check
-        # TODO, check if lists hold unique elements accross, element can't be true and false
+    return problem, data
 
-        ##############################
-        # step 3, split if necessary #
-        ##############################
+
+def SATsolver(sud_input, rules_input):
+    '''
+    This function takes as input the DIMACS format of a sudoku and the DIMACS format of the sudoku rules to correctly
+    Solve a sudoku
+    '''
+
+    # TODO might have to change this into one file
+
+    #####################
+    # Read sudoku rules #
+    #####################
+
+    problem = []
+
+    with open(rules_input, 'r') as f:
+        lines = f.read().splitlines()
+
+        firstline = True
+
+        # for each word in the line:
+        for line in lines:
+
+            if firstline:
+                firstline = False
+                continue
+
+            # convert string holding rules to list of literals (clause)
+            rule = line.split()
+            del rule[-1]
+            rule = [int(i) for i in rule]
+
+            # insert the clause into the problem
+            problem.append(rule)
+
+    #####################
+    # Extract variables #
+    #####################
+
+    variables = list(set(abs(var) for clause in problem for var in clause))
+    data = {'true': [], 'false': [], 'unk': []}
+
+    # set all variables to unknown
+    for var in variables:
+        data['unk'].append(var)
+
+    with open(sud_input, 'r') as f:
+        lines = f.read().splitlines()
+
+        for line in lines:
+
+            rule = line.split()
+            del rule[-1]
+
+            for var in rule:
+                data['true'].append(int(var))
+
+    #hardest_sudoku = [118, 233, 327, 246, 359, 372, 425, 467, 554, 565, 577, 641, 683, 731, 786, 798, 838, 845, 881, 929, 974]
+    #data['true'] = hardest_sudoku
+
+    ################################
+    ####         Solve         #####
+    ################################
+
+    # initialize tree dictionary, node, bool_data, dictionary
+    tree = {}
+
+    count = 0
+
+    # set the previous literal to be 0 at the start, so we can find the starting point in the tree
+    prev_literal = 0
+
+    # keep track of the number of splits
+    nr_splits = 0
+
+    while len(problem) > 0:
+        count += 1
+        ############
+        # Simplify #
+        ############
+
+        problem, data = simplify_clauses(problem, data, variables)
+
+
+        # initialize the unknown starting variables
+        if count == 1:
+            unknown_starts = list(np.copy(data['unk']))
+
+
+        ######################
+        # Split if necessary #
+        ######################
+
+        # check if we have an empty clause
+        empty = False
+        for clause in problem:
+            if not clause:
+                empty = True
 
         # check if necessary
         if len(problem) > 0:
 
             # apply split
             # pick random value from unknowns and set it to either true or false
-            if len(data['unk']) > 0:
-                literal = random.choice(data['unk'])
+            if len(data['unk']) > 0 and not empty:
 
-                data['unk'].remove(literal)
+                ###########################
+                # choose literal in split #
+                ###########################
 
-                if random.random() >= 0.5:
-                    data['true'].append(literal)
-                    val = 1
-                else:
-                    data['false'].append(literal)
-                    val = 0
+                # rewrite dictionary with other pointers
+                old_data = {**data}
+                old_data['unk'] = list(np.copy(data['unk']))
+                old_data['true'] = list(np.copy(data['true']))
+                old_data['false'] = list(np.copy(data['false']))
 
-                # save current state (as node)
-                path.insert(root, data, problem, val, literal)
+                literal, data = DP_pick_literal(data['unk'], data)
 
-            # if there are no more unknowns, traverse back through the tree and try different splits
+                # set split into dictionary tree
+                save = [problem, old_data, prev_literal]
+                tree[literal] = save
+
+                # save this literal as the previous for the next split
+                prev_literal = literal
+
+                nr_splits += 1
+
+            # if this path returns an unsatisfiable configuration,
+            # traverse back through the tree and try different splits
             else:
-                # need a backtracking function for the tree
-                path.traverseInorder(root)
+
+                # so this is the previous problem!
+                #print(tree[prev_literal][0])
+
+                problem, data, tree, literal = backtrack(tree, data, literal, unknown_starts, [])
+
+                prev_literal = literal
+                #if chosen_lit is not None:
+                #    literal = chosen_lit
+
+            print(tree.keys())
 
         else:
-            break
+            return data["true"]
 
         # check if dead end!
-        # might go wrong because of this? why?
+
 
         ############################
         # step 4, rinse and repeat #
         ############################
 
-    print(len(data['true']))
+"""
+START WITH A SIMPLE BACKTRACK OF ONE VARIABLE
+"""
+def backtrack(tree, data, literal, unknown_starts, seen_literals):
 
-    return
+    # step 1, get all the old values back
+    old_problem = tree[literal][0]
+
+    old_data = tree[literal][1]
+
+
+    data_to_save = {**old_data}
+    data_to_save['unk'] = list(np.copy(data_to_save['unk']))
+    data_to_save['true'] = list(np.copy(data_to_save['true']))
+    data_to_save['false'] = list(np.copy(data_to_save['false']))
+
+
+    prev_literal = tree[literal][2]
+
+
+    # PREV LITERAL WILL LEAD YOU TO THE PREVIOUS PROBLEM
+
+    # step 2, check whether the counterpart of the variable has been used yet
+
+    # if both have been seen and they are the first choice, we choose a new starting point from the unknown start points
+    if -literal in tree.keys() and prev_literal == 0:
+
+        # pick a new starting unknown
+        literal, data = DP_pick_literal(unknown_starts, old_data)
+
+        # remove the literal from the unknown starts, since it will no longer be unknown
+        unknown_starts.remove(abs(literal))
+
+        # now reinitialize tree (since the previous literal was 0 anyway) old entries
+        tree = {}
+        tree[literal] = [old_problem, data_to_save, prev_literal]
+
+        #return old_problem, data, tree, literal
+
+
+    # if it has, backtrack, let's say it has not yet
+    elif -literal in tree.keys():
+
+        # use the prev literal found in the node until this is no longer true
+        seen_literals.append(literal)
+        seen_literals.append(-literal)
+        seen_literals = list(set(seen_literals))
+
+        seen_literals = backtrack(tree, data, prev_literal, unknown_starts, seen_literals)
+        return seen_literals
+
+        # so we use recursion until we end up in the old loop
+        #print("QUITTING")
+        #quit()
+
+    # start with what happens if the variable has not yet been seen
+    else:
+        # flip the variable of the literal, by moving it from true to false or vice versa, depending on value
+        # use the CURRENT data for this, but not the current problem
+
+        # if it is a negative, remove it from false and insert it to true
+        if literal < 0:
+            data['false'].remove(abs(literal))
+            data['true'].append(abs(literal))
+
+            # sanity check
+            #if abs(literal) in data['false']:
+            #    print("FOUND LITERAL " + str(literal) + " IN THE FALSE LIST")
+
+        else:
+            data['true'].remove(abs(literal))
+            data['false'].append(abs(literal))
+
+            # sanity check
+            # if abs(literal) in data['true']:
+            #    print("FOUND LITERAL " + str(literal) + " IN THE TRUE LIST")
+
+        #print("TREE:")
+        #print(tree.keys())
+        #print("INSERTING " + str(literal) + " INTO THE TREE")
+        # since the literal has been flipped, we insert its counterpart
+        # into the tree with the old problem and the new data
+
+        # misschien hier niet old data, dan zit je namelijk meteen weer vast
+        # TODO CHECK WAT VOOR DATA HIER UITKOMT VERGELEKEN MET DE COUNTERPICK
+
+        tree[-literal] = [old_problem, old_data, prev_literal]
+
+        for lit in seen_literals:
+            del tree[lit]
+
+        print("BACK TO SPLITTING")
+
+        #print()
+
+
+
+    # step 3, use this and recheck the problem, for this we return the OLD_PROBLEM and the MANIPULATED CURRENT data
+
+    return old_problem, data, tree, literal
+
+def DP_pick_literal(choose_from, data):
+
+    # choose variable to be flipped
+    literal = random.choice(choose_from)
+
+    # remove this variable from the unknown variables
+    data['unk'].remove(literal)
+
+    # randomly set variable to true or false
+    x = random.random()
+    if x >= 0.5:
+        data['true'].append(literal)
+
+    else:
+        data['false'].append(literal)
+
+        # set to minus value to indicate that a value of false was chosen (for purpose of the tree dict)
+        literal = -literal
+
+    return literal, data
 
 
 solution = SATsolver("output.txt", "sudoku-rules.txt")
 
-print(solution)
+sudoku = np.zeros((9,9))
+
+for code in solution:
+    code = str(code)
+
+    sudoku[int(code[0]) - 1, int(code[1]) - 1] = int(code[2])
+
+print(sudoku)

@@ -13,6 +13,8 @@ class Node:
         self.problem = problem
         self.right = None
 
+
+
 class Tree:
     """
     Class tree will provide a tree as well as utility functions.
@@ -29,40 +31,18 @@ class Tree:
         Insert function will insert a node into tree.
         Duplicate keys are not allowed.
         """
-        # if tree is empty , return a root node
-        if node is None:
-            return self.createNode(bool_data, problem, literal)
-        # if data is smaller than parent , insert it into left side
-        # TODO: measure when left and when right
-        if bool == 1:
-            node.left = self.insert(node.left, bool_data, problem, bool, literal)
-        elif bool == 0:
-            node.right = self.insert(node.right, bool_data, problem, bool, literal)
+
 
         return node
 
-    def search(self, node, data):
-        """
-        Search function will search a node into tree.
-        """
-        # if root is None or root is the search data.
-        if node is None or node.data == data:
-            return node
 
-        if node.data < data:
-            return self.search(node.right, data)
-        else:
-            return self.search(node.left, data)
-
-    def traverseInorder(self, root):
+    def backtrack(self, current_node):
         """
         traverse function will print all the node in the tree.
         """
-        if root is not None:
-            self.traverseInorder(root.left)
-            print(root.left)
-            print(root.right)
-            self.traverseInorder(root.right)
+        pass
+        # return parent_node
+
 
 def unit_clause_simplification(problem, data, it):
     """
@@ -147,6 +127,8 @@ def SATsolver(sud_input, rules_input):
             del rule[-1]
 
             for var in rule:
+
+                print(var)
                 data['true'].append(int(var))
 
     # TODO solve

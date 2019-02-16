@@ -171,7 +171,7 @@ class Tree:
                 return False
 
             empty_clause = False
-            for clause in tree.current_node.problem:
+            for clause in self.current_node.problem:
                 if clause == []:
                     empty_clause = True
             # no options left in this node, so we need to go further up in the tree

@@ -2,6 +2,7 @@ import copy
 import random
 import sys
 from Tree import *
+import numpy as np
 
 import time
 
@@ -13,7 +14,7 @@ def main():
 def SATsolver(sud_input, rules_input):
 
     # get the problem
-    problem = read_rules(rules_input)
+    problem, variables = read_rules(rules_input)
 
     # keep track of variable assignments
     data = {'true': set(), 'false': set()}
@@ -29,7 +30,7 @@ def SATsolver(sud_input, rules_input):
 
     # solve
     # UNCOMMENT THE METHOD TO USE
-    SAT = solve_with_recursion(problem, data)
+    SAT = solve_with_recursion(problem, data, variables)
     # SAT = solve_with_tree(problem, data)
 
     if SAT == False:
@@ -39,7 +40,7 @@ def SATsolver(sud_input, rules_input):
         print("SOLVED") # DEBUG
 
 
-def solve_with_recursion(problem, data):
+def solve_with_recursion(problem, data, variables):
     """
     Simplify and split. If empty clause then backtrack and reassign.
     Until a) the problem is satisfied (write solution to solution.txt in DIMACS format) and return True
@@ -50,7 +51,10 @@ def solve_with_recursion(problem, data):
     """
 
     # simplify problem by filtering unit clauses
-    problem, data = filter_unit_clauses(problem, data)
+    #problem, data = filter_unit_clauses(problem, data)
+
+    # simplification
+    problem, data = simplify_clauses(problem, data, variables)
 
     print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>LENGTH", len(problem)) # DEBUG
 
@@ -69,7 +73,7 @@ def solve_with_recursion(problem, data):
     # split
     new_problem, new_data, variable, var_assignment = split(problem, data)
 
-    SAT = solve_with_recursion(new_problem, new_data)
+    SAT = solve_with_recursion(new_problem, new_data, variables)
 
     if SAT:
         return True
@@ -90,7 +94,7 @@ def solve_with_recursion(problem, data):
         # remember the value we assigned to this variable by storing it in the data
         new_data = update_data(data, variable, var_assignment)
 
-        return solve_with_recursion(new_problem, new_data)
+        return solve_with_recursion(new_problem, new_data, variables)
 
 
 def solve_with_tree(problem, data):
@@ -285,7 +289,9 @@ def read_rules(rules_input):
             clause = [int(i) for i in rule]
             problem.append(clause)
 
-    return problem
+    variables = list(set(abs(var) for clause in problem for var in clause))
+
+    return problem, variables
 
 def eliminate_known_vars(problem, data, sud_input):
     """
@@ -296,31 +302,34 @@ def eliminate_known_vars(problem, data, sud_input):
     :return: problem (updated problem), data (updated data).
     """
 
-    with open(sud_input, 'r') as f:
-        lines = f.read().splitlines()
 
-        for line in lines:
+    # with open(sud_input, 'r') as f:
+    #     lines = f.read().splitlines()
+    #
+    #     for line in lines:
+    #
+    #         known_var_assignment = line.split()
+    #
+    #         # get rid of the DIMACS 0
+    #         del known_var_assignment[-1]
+    #
+    #         known_var_assignment = int(known_var_assignment[0])
 
-            known_var_assignment = line.split()
+    for known_var_assignment in [118, 233, 327, 246, 359, 372, 425, 467, 554, 565, 577, 641, 683, 731, 786, 798, 838, 845, 881, 929, 974]:
 
-            # get rid of the DIMACS 0
-            del known_var_assignment[-1]
+        variable = abs(known_var_assignment)
 
-            known_var_assignment = int(known_var_assignment[0])
+        # a minus sign means "not", therefore the variable needs to be assigned to false if negative number
+        if known_var_assignment < 0:
+            var_assignment = False
+        else:
+            var_assignment = True
 
-            variable = abs(known_var_assignment)
+        # update problem with this new assignment
+        problem = update_problem(problem, variable, var_assignment)
 
-            # a minus sign means "not", therefore the variable needs to be assigned to false if negative number
-            if known_var_assignment < 0:
-                var_assignment = False
-            else:
-                var_assignment = True
-
-            # update problem with this new assignment
-            problem = update_problem(problem, variable, var_assignment)
-
-            # keep track of the assignments
-            data = update_data(data, variable, var_assignment)
+        # keep track of the assignments
+        data = update_data(data, variable, var_assignment)
 
 
     #  DEBUG: UNCOMMENT THIS IN ORDER TO TEST IF SOLUTION FROM solution.txt FILE IS CORRECT
@@ -429,6 +438,127 @@ def filter_unit_clauses(problem, data):
                 # we found a unit clause, so there might be more of them
                 unit_clause_in_problem = True
                 break
+
+    return problem, data
+
+
+def simplify_clauses(problem, data, variables):
+
+    # initialize dictionary
+    pure_literal_dict = {}
+
+    # initialize variable to indicate whether the problem can still be simplified
+    simplifiable = True
+
+    # loop while the problem still shows some changes
+    while len(problem) > 0 and simplifiable:
+
+        simplifiable = False
+
+        ###############################################
+        # step 1, simplify using true/false variables #
+        ###############################################
+
+        new_problem = []
+
+        for i, clause in enumerate(problem):
+            new_clause = list(np.copy(clause))
+
+            remove = False
+            for j, literal in enumerate(clause):
+
+                if abs(literal) in data['true']:
+
+                    # check if it is a negative, remove the literal if it is a negative
+                    if literal < 0:
+                        # remove literal from clause, don't use INDEX!
+                        new_clause.remove(literal)
+                        simplifiable = True
+
+                    # remove the clause if literal within is true
+                    else:
+                        remove = True
+                        simplifiable = True
+
+                elif abs(literal) in data['false']:
+                    # check if it is a positive, remove the literal if it is a positive
+                    if literal > 0:
+                        new_clause.remove(literal)
+                        simplifiable = True
+
+                    # remove the clause if literal within is false
+                    else:
+                        remove = True
+                        simplifiable = True
+
+            # append new clause to new problem
+            if not remove:
+                new_problem.append(new_clause)
+
+        # save changed problem
+        problem = new_problem
+
+
+        ################################
+        # step 2, simplify using rules #
+        ################################
+
+        # reset dictionary
+        for var in variables:
+            pure_literal_dict[var] = {"pos": 0, "neg": 0}
+
+        # loop through problem
+        for i, clause in enumerate(problem):
+
+            ##############################
+            # unit clause simplification #
+            ##############################
+
+            if len(clause) == 1:
+                var = problem[i][0]
+
+                # if the variable is positive, it has to be true in order for the clause to be true
+                # TODO it can now be both true and false! That's a problem
+                if var > 0:
+                    if abs(var) not in data['false']:
+                        data['true'].add(abs(var))
+                # and vice versa
+                else:
+                    if abs(var) not in data['true']:
+                        data['false'].add(abs(var))
+
+
+            ###############################
+            # Tautology and pure literals #
+            ###############################
+
+            for literal in clause:
+
+                # keep track of positive and negative occurences of literals to find pure literals
+                if literal > 0:
+                    pure_literal_dict[abs(literal)]["pos"] += 1
+
+                elif literal < 0:
+                    pure_literal_dict[abs(literal)]["neg"] += 1
+
+        # loop through the pure literal dict to find whether we have pure literals
+        for literal in pure_literal_dict:
+
+            pos = pure_literal_dict[literal]["pos"]
+            neg = pure_literal_dict[literal]["neg"]
+
+            # check whether one of them is equal to 0:
+            # if there are no positives, set the literal to false
+            if pos == 0 and pos != neg:
+                if literal not in data['true']:
+                    data['false'].add(literal)
+                    simplifiable = True
+
+            # if there are no negatives, set the literal to true
+            elif neg == 0 and pos != neg:
+                if literal not in data['false']:
+                    data['true'].add(literal)
+                    simplifiable = True
 
     return problem, data
 

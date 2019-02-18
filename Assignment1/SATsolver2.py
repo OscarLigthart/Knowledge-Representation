@@ -1,8 +1,8 @@
 import copy
 import random
 import sys
-from Tree import *
 import numpy as np
+from Heuristics import MOM_function, JW_function
 
 import time
 
@@ -97,40 +97,6 @@ def solve_with_recursion(problem, data, variables):
         return solve_with_recursion(new_problem, new_data, variables)
 
 
-def solve_with_tree(problem, data):
-    # initialize the tree
-    tree = Tree(problem, data)
-
-    # continue reducing the problem until we find either a solution to this problem (aka empty problem list) or we find that there
-    # is no solution to this problem (aka problem is not satisfiable)
-
-    SAT = True
-    while (tree.current_node.problem != [] and SAT):
-
-        empty_clause = False
-        while (True):
-
-            # and update the current node in the tree after filtering unit clauses
-            tree.current_node.problem, tree.current_node.data = filter_unit_clauses(tree.current_node.problem, tree.current_node.data)
-
-            if tree.current_node.problem == []:
-                break
-
-            empty_clause = contains_empty_clause(tree.current_node.problem)
-            if empty_clause:
-                break
-
-            tree.split_tree()
-
-        if empty_clause:
-            SAT = tree.backtrack()
-
-    if SAT == True:
-        write_solution_to_DIMACS_file(tree.current_node.data)
-
-    return SAT
-
-
 def update_problem(problem, variable, var_assignment):
     """
     Updates the problem after a variable got a new assignment
@@ -209,10 +175,18 @@ def split(problem, data):
     print("SPLIT") # DEBUG
 
     # pick randomly a variable that still occurs in the current problem
-    variable = abs(random.choice(random.choice(problem)))
+    #variable = abs(random.choice(random.choice(problem)))
 
     # and randomly assign a value (true or false) to this variable
-    var_assignment = bool(random.getrandbits(1))
+    #var_assignment = bool(random.getrandbits(1))
+
+    ##############
+    # Heuristics #
+    ##############
+
+    variable, var_assignment = MOM_function(problem, 4)
+
+    #variable, var_assignment = JW_function(problem)
 
     # remember the value we assigned to this variable by storing it in the data
     new_data = update_data(data, variable, var_assignment)
@@ -391,57 +365,6 @@ def filter_tautologies(problem):
     return new_problem
 
 
-def filter_unit_clauses(problem, data):
-    """
-    Filters unit clauses from the problem and returns this simplified problem.
-    :param problem: The current problem which is a list of clauses.
-    :param data: Dictionary storing assignments of variables.
-    :return: problem (without unit clauses), data (updated data).
-    """
-
-    # there might be unit clauses
-    unit_clause_in_problem = True
-
-    print("START FILTER UNIT CLAUSE") # DEBUG
-
-    # filter unit clauses until there are no more unit clauses or the problem is solved
-    while (unit_clause_in_problem and problem != []):
-
-        print(len(problem)) # DEBUG
-
-        # if we do not find unit clauses in this cycle, then there are no unit clauses
-        unit_clause_in_problem = False
-
-        for clause in problem:
-
-            # a unit clause only contains one literal
-            if len(clause) == 1:
-
-                literal = clause[0]
-
-                variable = abs(literal)
-
-                # if the literal is negative, the variable needs to be assigned to false, because "not"False = True
-                if literal < 0:
-                    var_assignment = False
-
-                # else the variable needs to be assigned to true
-                else:
-                    var_assignment = True
-
-                # update the problem
-                problem = update_problem(problem, variable, var_assignment)
-
-                # keep track of the assignments
-                data = update_data(data, variable, var_assignment)
-
-                # we found a unit clause, so there might be more of them
-                unit_clause_in_problem = True
-                break
-
-    return problem, data
-
-
 def simplify_clauses(problem, data, variables):
 
     # initialize dictionary
@@ -561,7 +484,6 @@ def simplify_clauses(problem, data, variables):
                     simplifiable = True
 
     return problem, data
-
 
 if __name__ == '__main__':
     main()

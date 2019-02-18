@@ -36,7 +36,7 @@ def SATsolver(sud_input, rules_input):
         sys.stdout.write("This problem is unsatisfiable.")
 
     else:
-        print("SOLVED")
+        print("SOLVED") # DEBUG
 
 
 def solve_with_recursion(problem, data):
@@ -202,7 +202,8 @@ def split(problem, data):
     :return: new_problem, new_data, variable (the variable picked during this split),
         var_assignment (the assignment of the variable in during split).
     """
-    print("SPLIT")
+    print("SPLIT") # DEBUG
+
     # pick randomly a variable that still occurs in the current problem
     variable = abs(random.choice(random.choice(problem)))
 
@@ -300,17 +301,17 @@ def eliminate_known_vars(problem, data, sud_input):
 
         for line in lines:
 
-            known_var_assigment = line.split()
+            known_var_assignment = line.split()
 
             # get rid of the DIMACS 0
-            del known_var_assigment[-1]
+            del known_var_assignment[-1]
 
-            known_var_assigment = int(known_var_assigment[0])
+            known_var_assignment = int(known_var_assignment[0])
 
-            variable = abs(known_var_assigment)
+            variable = abs(known_var_assignment)
 
             # a minus sign means "not", therefore the variable needs to be assigned to false if negative number
-            if known_var_assigment < 0:
+            if known_var_assignment < 0:
                 var_assignment = False
             else:
                 var_assignment = True

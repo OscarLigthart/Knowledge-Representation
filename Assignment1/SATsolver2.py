@@ -2,7 +2,7 @@ import copy
 import random
 import sys
 import numpy as np
-from Heuristics import MOM_function, JW_function
+from Heuristics import MOM_function, JW_function, human_strategy
 
 import time
 
@@ -71,7 +71,7 @@ def solve_with_recursion(problem, data, variables):
         return True # SATISFIED
 
     # split
-    new_problem, new_data, variable, var_assignment = split(problem, data)
+    new_problem, new_data, variable, var_assignment = split(problem, data, variables)
 
     SAT = solve_with_recursion(new_problem, new_data, variables)
 
@@ -164,7 +164,7 @@ def update_data(data, variable, var_assignment):
 
     return new_data
 
-def split(problem, data):
+def split(problem, data, variables):
     """
     Randomly assigns an yet unassigned variable in the problem to True or False
     :param problem: The current problem which is a list of clauses.
@@ -184,9 +184,11 @@ def split(problem, data):
     # Heuristics #
     ##############
 
-    variable, var_assignment = MOM_function(problem, 4)
+    #variable, var_assignment = MOM_function(problem, 4)
 
     #variable, var_assignment = JW_function(problem)
+
+    variable, var_assignment = human_strategy(data, variables)
 
     # remember the value we assigned to this variable by storing it in the data
     new_data = update_data(data, variable, var_assignment)

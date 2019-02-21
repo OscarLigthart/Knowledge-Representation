@@ -8,8 +8,12 @@ import time
 
 def main():
     startTime = time.time()
-    SATsolver("output.txt", "sudoku-rules.txt")
+    to_save = SATsolver("output.txt", "sudoku-rules.txt")
     print('The script took {0} seconds!'.format(time.time() - startTime))
+    print(to_save)
+    print(len(to_save['pures']))
+    print(len(to_save['units']))
+    print(len(to_save['clauses']))
 
 def SATsolver(sud_input, rules_input):
 
@@ -30,7 +34,10 @@ def SATsolver(sud_input, rules_input):
 
     # solve
     # UNCOMMENT THE METHOD TO USE
-    SAT = solve_with_recursion(problem, data, variables)
+    to_save = {'splits': 0, 'backtracks': 0, 'clauses': [], 'pures': [], 'units': []}
+
+
+    SAT, to_save = solve_with_recursion(problem, data, variables, to_save)
     # SAT = solve_with_tree(problem, data)
 
     if SAT == False:
@@ -39,8 +46,12 @@ def SATsolver(sud_input, rules_input):
     else:
         print("SOLVED") # DEBUG
 
+    # need to save datastructure
 
-def solve_with_recursion(problem, data, variables):
+    return to_save
+
+
+def solve_with_recursion(problem, data, variables, to_save):
     """
     Simplify and split. If empty clause then backtrack and reassign.
     Until a) the problem is satisfied (write solution to solution.txt in DIMACS format) and return True
@@ -50,11 +61,10 @@ def solve_with_recursion(problem, data, variables):
     :return: bool (True if the problem is satisfied, False if the problem is unsatisfiable).
     """
 
-    # simplify problem by filtering unit clauses
-    #problem, data = filter_unit_clauses(problem, data)
-
     # simplification
-    problem, data = simplify_clauses(problem, data, variables)
+    problem, data, to_save = simplify_clauses(problem, data, variables, to_save)
+
+    to_save['clauses'].append(len(problem))
 
     print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>LENGTH", len(problem)) # DEBUG
 
@@ -72,13 +82,15 @@ def solve_with_recursion(problem, data, variables):
 
     # split
     new_problem, new_data, variable, var_assignment = split(problem, data, variables)
+    to_save['splits'] += 1
 
-    SAT = solve_with_recursion(new_problem, new_data, variables)
+    SAT = solve_with_recursion(new_problem, new_data, variables, to_save)
 
     if SAT:
-        return True
+        return True, to_save
     else:
         print("backtrack") # DEBUG
+        to_save['backtracks'] += 1
 
         # reassign variable:
         # if it was true make it now false
@@ -94,7 +106,7 @@ def solve_with_recursion(problem, data, variables):
         # remember the value we assigned to this variable by storing it in the data
         new_data = update_data(data, variable, var_assignment)
 
-        return solve_with_recursion(new_problem, new_data, variables)
+        return solve_with_recursion(new_problem, new_data, variables, to_save)
 
 
 def update_problem(problem, variable, var_assignment):
@@ -184,11 +196,11 @@ def split(problem, data, variables):
     # Heuristics #
     ##############
 
-    #variable, var_assignment = MOM_function(problem, 4)
+    variable, var_assignment = MOM_function(problem, 4)
 
     #variable, var_assignment = JW_function(problem)
 
-    variable, var_assignment = human_strategy(data, variables)
+    #variable, var_assignment = human_strategy(data, variables)
 
     # remember the value we assigned to this variable by storing it in the data
     new_data = update_data(data, variable, var_assignment)
@@ -367,13 +379,16 @@ def filter_tautologies(problem):
     return new_problem
 
 
-def simplify_clauses(problem, data, variables):
+def simplify_clauses(problem, data, variables, to_save):
 
     # initialize dictionary
     pure_literal_dict = {}
 
     # initialize variable to indicate whether the problem can still be simplified
     simplifiable = True
+
+    nr_unit_clauses = 0
+    nr_pure_literals = 0
 
     # loop while the problem still shows some changes
     while len(problem) > 0 and simplifiable:
@@ -432,6 +447,9 @@ def simplify_clauses(problem, data, variables):
         for var in variables:
             pure_literal_dict[var] = {"pos": 0, "neg": 0}
 
+        # keep track of the amount of unit clauses
+        #nr_unit_clauses = 0
+
         # loop through problem
         for i, clause in enumerate(problem):
 
@@ -440,10 +458,11 @@ def simplify_clauses(problem, data, variables):
             ##############################
 
             if len(clause) == 1:
+                nr_unit_clauses += 1
+
                 var = problem[i][0]
 
                 # if the variable is positive, it has to be true in order for the clause to be true
-                # TODO it can now be both true and false! That's a problem
                 if var > 0:
                     if abs(var) not in data['false']:
                         data['true'].add(abs(var))
@@ -466,6 +485,8 @@ def simplify_clauses(problem, data, variables):
                 elif literal < 0:
                     pure_literal_dict[abs(literal)]["neg"] += 1
 
+        #nr_pure_literals = 0
+
         # loop through the pure literal dict to find whether we have pure literals
         for literal in pure_literal_dict:
 
@@ -478,14 +499,20 @@ def simplify_clauses(problem, data, variables):
                 if literal not in data['true']:
                     data['false'].add(literal)
                     simplifiable = True
+                    nr_pure_literals += 1
 
             # if there are no negatives, set the literal to true
             elif neg == 0 and pos != neg:
                 if literal not in data['false']:
                     data['true'].add(literal)
                     simplifiable = True
+                    nr_pure_literals += 1
 
-    return problem, data
+    # TODO save this in the while loop or after everything is done??
+    to_save['pures'].append(nr_pure_literals)
+    to_save['units'].append(nr_unit_clauses)
+
+    return problem, data, to_save
 
 if __name__ == '__main__':
     main()

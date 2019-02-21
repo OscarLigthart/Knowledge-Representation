@@ -110,13 +110,13 @@ def MOM_function(problem, k):
         pos_counts = occurrences.get(literal, 0)
         neg_counts = occurrences.get(-literal, 0)
 
-        MOM[literal] = ((pos_counts + neg_counts) * 2^k) + (pos_counts * neg_counts)
+        MOM[literal] = ((pos_counts + neg_counts) * 2 ^ k) + (pos_counts * neg_counts)
 
     # get highest value
     literal = max(MOM, key=MOM.get)
 
     # two sided MOM?
-    if MOM.get(literal, 0) > MOM.get(-literal, 0):
+    if MOM.get(literal, 0) >= MOM.get(-literal, 0):
         var_assignment = True
     else:
         var_assignment = False

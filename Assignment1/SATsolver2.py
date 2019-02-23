@@ -2,7 +2,8 @@ import copy
 import random
 import sys
 import numpy as np
-from Heuristics import MOM_function, JW_function, human_strategy
+import itertools
+from Heuristics import MOM_function, JW_function, human_strategy, x_wing
 
 import time
 
@@ -60,6 +61,9 @@ def solve_with_recursion(problem, data, variables, to_save):
     :param data: Dictionary storing assignments of variables.
     :return: bool (True if the problem is satisfied, False if the problem is unsatisfiable).
     """
+
+    # first check for x-wing heuristic
+    problem, data = x_wing(problem, data)
 
     # simplification
     problem, data, to_save = simplify_clauses(problem, data, variables, to_save)

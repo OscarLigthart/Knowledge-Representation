@@ -3,13 +3,26 @@ import random
 import sys
 import numpy as np
 import itertools
-from Heuristics import MOM_function, JW_function, human_strategy, x_wing, y_wing
+import pickle
+from Heuristics import MOM_function, JW_function, x_wing, y_wing
 
 import time
 
 def main():
     startTime = time.time()
-    to_save = SATsolver("output.txt", "sudoku-rules.txt")
+
+    all_saves = []
+    for i in range(nr_sudokus):
+        #for j in range(10):
+        to_save = SATsolver("output.txt", "sudoku-rules.txt")
+        print('The script took {0} seconds!'.format(time.time() - startTime))
+        all_saves.append(to_save)
+
+    #filename --> method + difficulty
+    filename = "DP_easy"
+    pickle.dump(all_saves, open(filename + ".p", "wb"))
+
+    #to_save = SATsolver("output.txt", "sudoku-rules.txt")
     print('The script took {0} seconds!'.format(time.time() - startTime))
     print(to_save)
     print(len(to_save['pures']))
@@ -65,15 +78,15 @@ def solve_with_recursion(problem, data, variables, to_save):
     """
 
     # first check for x-wing heuristic
-    problem, data, nr_x_wings, nr_x_removed = x_wing(problem, data)
-    to_save['x-wings'] += nr_x_wings
-    to_save['x-removed'] += nr_x_removed
+    #problem, data, nr_x_wings, nr_x_removed = x_wing(problem, data)
+    #to_save['x-wings'] += nr_x_wings
+    #to_save['x-removed'] += nr_x_removed
 
 
     # check for y-wing heuristic
-    # problem, data, nr_y_wings, nr_y_removed = y_wing(problem, data)
-    # to_save['y-wings'] += nr_y_wings
-    # to_save['y-removed'] += nr_y_removed
+    #problem, data, nr_y_wings, nr_y_removed = y_wing(problem, data)
+    #to_save['y-wings'] += nr_y_wings
+    #to_save['y-removed'] += nr_y_removed
 
 
     # simplification
@@ -84,7 +97,7 @@ def solve_with_recursion(problem, data, variables, to_save):
     print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>LENGTH", len(problem)) # DEBUG
 
     if contains_empty_clause(problem):
-        return False # UNSATISFIED
+        return False, to_save # UNSATISFIED
 
     if problem == []:
         # then the current assignments are a solution to this problem
@@ -93,13 +106,13 @@ def solve_with_recursion(problem, data, variables, to_save):
 
         write_solution_to_DIMACS_file(data)
 
-        return True # SATISFIED
+        return True, to_save # SATISFIED
 
     # split
     new_problem, new_data, variable, var_assignment = split(problem, data, variables)
     to_save['splits'] += 1
 
-    SAT = solve_with_recursion(new_problem, new_data, variables, to_save)
+    SAT, to_save = solve_with_recursion(new_problem, new_data, variables, to_save)
 
     if SAT:
         return True, to_save
@@ -202,20 +215,18 @@ def split(problem, data, variables):
     print("SPLIT") # DEBUG
 
     # pick randomly a variable that still occurs in the current problem
-    #variable = abs(random.choice(random.choice(problem)))
+    variable = abs(random.choice(random.choice(problem)))
 
     # and randomly assign a value (true or false) to this variable
-    #var_assignment = bool(random.getrandbits(1))
+    var_assignment = bool(random.getrandbits(1))
 
     ##############
     # Heuristics #
     ##############
 
-    variable, var_assignment = MOM_function(problem, 4)
+    #variable, var_assignment = MOM_function(problem, 4)
 
-    #variable, var_assignment = JW_function(problem)
-
-    #variable, var_assignment = human_strategy(data, variables)
+    variable, var_assignment = JW_function(problem)
 
     # remember the value we assigned to this variable by storing it in the data
     new_data = update_data(data, variable, var_assignment)

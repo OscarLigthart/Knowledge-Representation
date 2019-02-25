@@ -127,6 +127,9 @@ def MOM_function(problem, k):
 def x_wing(problem, data):
     """This function performs the x-wing strategy (heuristic) on the current sudoku board"""
 
+    all_removed = set()
+    nr_x_wings = 0
+
     unknowns = set()
     # get all unknown variables
     for clause in problem:
@@ -241,6 +244,9 @@ def x_wing(problem, data):
             # print("for the rows:")
             # print(r)
 
+            # keep track of number of x-wings found
+            nr_x_wings += 1
+
             # search for the values in the column, without altering the current coordinates
             for col in list(row_x_wing[0]):
                 for literal in unknowns:
@@ -254,6 +260,7 @@ def x_wing(problem, data):
                         # check whether this literal is not in the x-wing
                         if (var_row, var_col) not in coords:
                             data['false'].add(literal)
+                            all_removed.add(literal)
 
         # if there is an item in col_x_wing, set all other rows holding the value to false
         if col_x_wing:
@@ -263,6 +270,9 @@ def x_wing(problem, data):
             # print(col_x_wing)
             # print("for the columns:")
             # print(c)
+
+            # keep track of number of x-wings found
+            nr_x_wings += 1
 
             # search for the values in the row, without altering the current coordinates
             for row in list(col_x_wing[0]):
@@ -278,8 +288,213 @@ def x_wing(problem, data):
                         if (var_row, var_col) not in coords:
                             # set this literal to false
                             data['false'].add(literal)
+                            all_removed.add(literal)
 
-    return problem, data
+    # check the amount of literals set to false
+    nr_removed = len(all_removed)
+
+    return problem, data, nr_x_wings, nr_removed
+
+def y_wing(problem, data):
+    """ This function recognizes the y-wing pattern in a sudoku and changes
+    the values of the literals according to the y-wing heuristic/strategy
+    """
+
+    nr_y_wings = 0
+    all_removed = set()
+
+    # STEP 1: Look for doubles in unknowns
+    unknowns = set()
+    # get all unknown variables
+    for clause in problem:
+        for literal in clause:
+            unknowns.add(abs(literal))
+
+    # initiate doubles dictionary
+    doubles = {}
+
+
+    # double in the values, for each coordinate set, check if there exist only 2 values
+    for row in range(1,10):
+        for col in range(1,10):
+            doubles[(row, col)] = []
+            for value in range(1,10):
+                # convert possibility into literal
+                lit = 100*row + 10*col + value
+
+                # check if possible literal exists in unknowns, keep count if it does for every coordinate
+                if lit in unknowns:
+                    doubles[(row, col)].append(lit)
+
+    double_coordinates = []
+    double_values = []
+
+    # scan dictionary for doubles
+    for key, value in doubles.items():
+        if len(value) == 2:
+            # save coordinates (to check for overlap)
+            double_coordinates.append(key)
+            double_values.append(tuple([int(str(value[0])[2]),
+                                       int(str(value[1])[2])]))
+
+    # now we have a nested list of all the doubles in the sudoku
+    # look for the pivot and pincer values
+    # find the first 3 indices
+    y_wings = set()
+
+    count = 0
+    # print(double_coordinates)
+    # print(double_values)
+
+    all_coordinates = set()
+
+    for h, double in enumerate(double_values):
+        # tmp = deepcopy(double_values)
+        # tmp.remove(double_values[h])
+        for i, value in enumerate(double):
+            for k, double2 in enumerate(double_values):
+                if double == double2:
+                    continue
+
+                for j, value2 in enumerate(double2):
+                    count += 1
+                    if value2 == value:
+                        # what now?
+                        # save other values of double and see if there is a double in the list holding them both
+                        other_values = tuple(sorted([double[1 - i], double2[1 - j]]))
+
+                        if other_values in double_values:
+                            # save potential y_wing
+                            y_wings.add(tuple(sorted((double, double2, other_values))))
+
+                            # get coordinates of first and second double, along with final other
+                            # values
+                            # for all occurrences of the other value, append the list
+                            indices = [i for i, x in enumerate(double_values) if x == other_values]
+
+                            for l in indices:
+                                all_coordinates.add(tuple(sorted([double_coordinates[h],
+                                                                  double_coordinates[k],
+                                                                  double_coordinates[l]])))
+    # print('possible y wings:')
+    # print(y_wings)
+    # print(all_coordinates)
+
+    # slice list into parts of 3? --> maybe later
+    for coordinates in all_coordinates:
+        for coordinate in coordinates:
+            # find the coordinate that conflicts with both to get the pivot
+            # how can you conflict? if either r or c are the same or you are in the same box
+            # check if row is the same for eitherthe overlapping value of the other doubles can be removed in its conflicting parts one of the other coordinates
+            conflicts = set()
+            r = coordinate[0]
+            c = coordinate[1]
+            # for the remaining coordinates: see if there exists a conflict
+            for coordinate2 in coordinates:
+                if coordinate2 == coordinate:
+                    continue
+
+                # check for row
+                if coordinate2[0] == r:
+                    # conflict with one
+                    conflicts.add(coordinate2)
+
+                # check for column
+                if coordinate2[1] == c:
+                    # conflict with one
+                    conflicts.add(coordinate2)
+
+                # check for same box
+                # how? row and column must be within modulo 3
+                if int((coordinate2[0] - 1) / 3) == int((r - 1) / 3) and int((coordinate2[1] - 1) / 3) == int((c - 1) / 3):
+                    conflicts.add(coordinate2)
+
+            # print('possibility:')
+            # check if they don't live on the same row or column
+            # print(coordinate)
+            # print(conflicts)
+
+            # found the pivot! Now check the overlapping value of the other doubles
+            if len(conflicts) == 2:
+
+                extract_conflicts = list(conflicts)
+                check = [coordinate, extract_conflicts[0], extract_conflicts[1]]
+                if check[0][1] == check[1][1] == check[2][1] or \
+                        check[0][0] == check[1][0] == check[2][0]:
+                    #print('found y-wing on same row or col')
+                    continue
+
+                both_double = []
+                for double_coord in conflicts:
+                    # find the index in the coordinate list to find the double it belongs to
+                    index = double_coordinates.index(double_coord)
+                    both_double.append(double_values[index])
+
+                    # check!
+                    # now for these doubles, use the coordinates to find literal values
+                    # of overlapping variables, they can be removed
+
+                value = [val for val in both_double[0] if val in both_double[1]][0]
+
+                conflicts = list(conflicts)
+                coord1 = conflicts[0]
+                coord2 = conflicts[1]
+
+                remove_unknowns = set()
+
+                # get all coordinates for overlapping rows
+                # loop over board again? --> see if a coordinate conflicts with both
+                for row in range(1, 10):
+                    for col in range(1, 10):
+
+                        row_conflict_1 = False
+                        col_conflict_1 = False
+                        box_conflict_1 = False
+                        row_conflict_2 = False
+                        col_conflict_2 = False
+                        box_conflict_2 = False
+
+                        # the coordinate needs to be conflicting with both coordinates
+                        if coord1[0] == row:
+                            row_conflict_1 = True
+
+                        if coord1[1] == col:
+                            col_conflict_1 = True
+
+                        if int((coord1[0] - 1) / 3) == int((row - 1) / 3) and int((coord1[1] - 1) / 3) == int(
+                                (col - 1) / 3):
+                            box_conflict_1 = True
+
+                        if coord2[0] == row:
+                            row_conflict_2 = True
+
+                        if coord2[1] == col:
+                            col_conflict_2 = True
+
+                        if int((coord2[0] - 1) / 3) == int((row - 1) / 3) and int((coord2[1] - 1) / 3) == int(
+                                (col - 1) / 3):
+                            box_conflict_2 = True
+
+                        if (row_conflict_1 and col_conflict_2) or (row_conflict_1 and box_conflict_2) or \
+                                (col_conflict_1 and row_conflict_2) or (col_conflict_1 and box_conflict_2) or \
+                                (box_conflict_1 and row_conflict_2) or (box_conflict_1 and col_conflict_2):
+                            # append the coordinate along with the value to the list of unknowns
+                            remove_unknowns.add(100 * row + 10 * col + value)
+
+                # now we remove the pivot point from the remove_unknowns and we adjust the data
+                remove_unknowns.remove(100 * coordinate[0] + 10 * coordinate[1] + value)
+
+                # for all these unknowns, we check if they can be set to false
+                for variable in remove_unknowns:
+                    if variable in unknowns:
+                        data['false'].add(variable)
+                        all_removed.add(variable)
+
+                nr_y_wings += 1
+    nr_removed = len(all_removed)
+
+    return problem, data, nr_y_wings, nr_removed
+
 
 
 

@@ -3,7 +3,7 @@ import random
 import sys
 import numpy as np
 import itertools
-from Heuristics import MOM_function, JW_function, human_strategy, x_wing
+from Heuristics import MOM_function, JW_function, human_strategy, x_wing, y_wing
 
 import time
 
@@ -35,8 +35,10 @@ def SATsolver(sud_input, rules_input):
 
     # solve
     # UNCOMMENT THE METHOD TO USE
-    to_save = {'splits': 0, 'backtracks': 0, 'clauses': [], 'pures': [], 'units': []}
-
+    to_save = {'splits': 0, 'backtracks': 0,
+               'x-wings': 0, 'x-removed': 0,
+               'y-wings': 0, 'y-removed': 0,
+               'clauses': [], 'pures': [], 'units': []}
 
     SAT, to_save = solve_with_recursion(problem, data, variables, to_save)
     # SAT = solve_with_tree(problem, data)
@@ -63,7 +65,16 @@ def solve_with_recursion(problem, data, variables, to_save):
     """
 
     # first check for x-wing heuristic
-    problem, data = x_wing(problem, data)
+    problem, data, nr_x_wings, nr_x_removed = x_wing(problem, data)
+    to_save['x-wings'] += nr_x_wings
+    to_save['x-removed'] += nr_x_removed
+
+
+    # check for y-wing heuristic
+    # problem, data, nr_y_wings, nr_y_removed = y_wing(problem, data)
+    # to_save['y-wings'] += nr_y_wings
+    # to_save['y-removed'] += nr_y_removed
+
 
     # simplification
     problem, data, to_save = simplify_clauses(problem, data, variables, to_save)

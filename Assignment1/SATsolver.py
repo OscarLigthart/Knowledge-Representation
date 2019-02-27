@@ -1,66 +1,433 @@
-import itertools as it
-import numpy as np
+import copy
 import random
+import sys
+import numpy as np
+
+from Heuristics import MOM_function, JW_function, x_wing, y_wing
+
+import globals
+
 import time
 
-def unit_clause_simplification(problem, data, it):
-    """
-    This function performs a unit clause simplification
+def main():
 
-    :param problem: total list of left clauses
-    :param data: all variables and the value they represent
-    :param it: the index of the current clause
 
-    :return:
-    """
+    # if len(sys.argv) != 2:
+    #     sys.stdout.write("Usage: SAT -Sn inputfile\n " #TODO geef juiste Usage info
+    #                      "*n = 1 for DP\n*n = 2 for MOM\n*n = 3 for JW *n = 4 for x-wing\n*n = 5 for y-wing")
+    #     sys.exit(1)
+    #TODO make code run with commandline
 
-    var = problem[it][0]
 
-    try:
-        data['unk'].remove(abs(var))
-    except:
-        pass
+    globals.initialize()
 
-    # if the variable is positive, it has to be true in order for the clause to be true
-    if var > 0:
-        data['true'].append(abs(var))
-    # and vice versa
+    startTime = time.time()
+
+    SATsolver("output.txt", "sudoku-rules.txt")
+    print('The script took {0} seconds!'.format(time.time() - startTime))
+
+def SATsolver(sud_input, rules_input):
+
+    # get the problem
+    problem, variables = read_rules(rules_input)
+
+    # keep track of variable assignments
+    data = {'true': set(), 'false': set()}
+
+    # eliminate the known variable from the problem
+    problem, data = eliminate_known_vars(problem, data, sud_input)
+
+    # filter tautologies from problem
+    problem = filter_tautologies(problem) ### TODO sudokos do not contain tautologies so this needs to be tested
+
+    # solve
+    SAT = solve_with_recursion(problem, data, variables)
+
+    if SAT == False:
+        sys.stdout.write("This problem is unsatisfiable.")
+
     else:
-        data['false'].append(abs(var))
+        print("SOLVED") # DEBUG
 
-    return data
+
+def solve_with_recursion(problem, data, variables):
+    """
+    Simplify and split. If empty clause then backtrack and reassign.
+    Until a) the problem is satisfied (write solution to solution.txt in DIMACS format) and return True
+          b) it is clear that the problem is unsatisfiable (return False)
+    :param problem: A list of clauses to solve.
+    :param data: Dictionary storing assignments of variables.
+    :return: bool (True if the problem is satisfied, False if the problem is unsatisfiable).
+    """
+
+    # first check for x-wing heuristic
+    #problem, data, nr_x_wings, nr_x_removed = x_wing(problem, data)
+
+
+    #globals.experiment_data['x-wings'] += nr_x_wings
+    #globals.experiment_data['x-removed'] += nr_x_removed
+
+
+    # check for y-wing heuristic
+    #problem, data, nr_y_wings, nr_y_removed = y_wing(problem, data)
+
+
+    #globals.experiment_data['y-wings'] += nr_y_wings
+    #globals.experiment_data['y-removed'] += nr_y_removed
+
+
+    # simplification
+    problem, data = simplify_clauses(problem, data, variables)
+
+    globals.experiment_data['clauses'].append(len(problem))
+
+    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>LENGTH", len(problem)) # DEBUG
+
+    if contains_empty_clause(problem):
+        return False # UNSATISFIED
+
+    if problem == []:
+        # then the current assignments are a solution to this problem
+
+        print("This the solution", data) # DEBUG
+
+        write_solution_to_DIMACS_file(data)
+
+        return True # SATISFIED
+
+    # split
+    new_problem, new_data, variable, var_assignment = split(problem, data, variables)
+
+
+    globals.experiment_data['splits'] += 1
+
+    SAT = solve_with_recursion(new_problem, new_data, variables)
+
+    if SAT:
+        return True
+    else:
+        print("backtrack") # DEBUG
+
+        globals.experiment_data['backtracks'] += 1
+
+        # reassign variable:
+        # if it was true make it now false
+        if var_assignment == True:
+            var_assignment = False
+        # if it was false make it now true
+        elif var_assignment == False:
+            var_assignment = True
+
+        # now this variable has a value assigned, the problem will change: so update the problem
+        new_problem = update_problem(problem, variable, var_assignment)
+
+        # remember the value we assigned to this variable by storing it in the data
+        new_data = update_data(data, variable, var_assignment)
+
+        return solve_with_recursion(new_problem, new_data, variables)
+
+
+def update_problem(problem, variable, var_assignment):
+    """
+    Updates the problem after a variable got a new assignment
+    :param problem: The current problem, which is a list of clauses, that needs to be updated.
+    :param variable: The variable that got an assignment
+    :param var_assignment: The assignment (either True of False) the variable got.
+    :return: new_problem (problem updated as result of the new assignment)
+    """
+
+    new_problem = []
+
+    for clause in problem:
+        new_clause = copy.deepcopy(clause)
+        clause_satisfied = False
+        for literal in clause:
+
+            # if the variable appears in the clause
+            if abs(literal) == variable:
+
+                # if the variable appears as a neg. literal
+                if literal < 0:
+                    # and the variable is assigned to true, the outcome will be "not" true -> so false
+                    if var_assignment == True:
+                        # in that case the literal needs to be removed from the clause
+                        new_clause.remove(literal)
+
+                    # however, if the variable is assigned to false, the outcome will be "not" false -> so true
+                    elif var_assignment == False:
+                        # in that case the clause is satisfied
+                        clause_satisfied = True
+                # if the variable appears as a pos. literal
+                else:
+
+                    # and the variable is assigned to true, the outcome will be true
+                    if var_assignment == True:
+                        # in that case the clause is satisfied
+                        clause_satisfied = True
+
+                    # however, if the variable is assigned to false, the outcome will be false
+                    if var_assignment == False:
+                        # in that case the literal needs to be removed from the clause
+                        new_clause.remove(literal)
+
+        # if the clause is not satisfied, it will remain in the problem
+        if not clause_satisfied:
+            new_problem.append(new_clause)
+
+    return new_problem
+
+
+def update_data(data, variable, var_assignment):
+    """
+    Updates the dictionary that stores the assignments of variables given a variable and its assignment.
+    :param data: Dictionary storing assignments of variables that needs to be updated.
+    :param variable: The variable that got an assignment.
+    :param var_assignment: The assignment (either True or False) the variable got.
+    :return: updated_data.
+    """
+
+    new_data = copy.deepcopy(data)
+    if var_assignment == True:
+        new_data["true"].add(variable)
+    elif var_assignment == False:
+        new_data["false"].add(variable)
+
+    return new_data
+
+def split(problem, data, variables):
+    """
+    Randomly assigns an yet unassigned variable in the problem to True or False
+    :param problem: The current problem which is a list of clauses.
+    :param data: Dictionary storing assignments of variables.
+    :return: new_problem, new_data, variable (the variable picked during this split),
+        var_assignment (the assignment of the variable in during split).
+    """
+    print("SPLIT") # DEBUG
+
+    # pick randomly a variable that still occurs in the current problem
+    variable = abs(random.choice(random.choice(problem)))
+
+    # and randomly assign a value (true or false) to this variable
+    var_assignment = bool(random.getrandbits(1))
+
+    ##############
+    # Heuristics #
+    ##############
+
+    #variable, var_assignment = MOM_function(problem, 4)
+
+    variable, var_assignment = JW_function(problem)
+
+    # remember the value we assigned to this variable by storing it in the data
+    new_data = update_data(data, variable, var_assignment)
+
+    # now this variable has a value assigned, the problem will change: so update the problem
+    new_problem = update_problem(problem, variable, var_assignment)
+
+    return new_problem, new_data, variable, var_assignment
+
+
+def contains_empty_clause(problem):
+    """
+    Determines if the problem contains an empty clause.
+
+    :param problem: The current problem which is a list of clauses.
+    :return: empty_clause (bool indicating if there is an empty clause).
+
+    """
+
+    empty_clause = False
+    for clause in problem:
+        if clause == []:
+            empty_clause = True
+
+    return empty_clause
+
+
+def write_solution_to_DIMACS_file(data):
+    # write solution to DIMACS file
+    solution_file = open('solution.txt', 'w')
+    solution_file.truncate(0)  # clears the solution.txt file
+
+
+    # DEBUG: UNCOMMENT THIS IN ORDER TO TEST IF SOLUTION FROM solution.txt FILE IS CORRECT
+    # for i, var in enumerate(data["false"]):
+    #     solution_file.write("-"+str(var) + " 0\n")
+    #
+
+    for i, var in enumerate(data["true"]):
+        solution_file.write(str(var) + " 0")
+
+        # no enter after last line
+        if i != len(data["true"]) - 1:
+            solution_file.write("\n")
+
+    solution_file.close()
+
+def read_rules(rules_input):
+    """
+    Takes a DIMACS file containing rules and transforms it into a set of clauses that needs to be solved
+    :param rules_input: The name of the DIMACS file containing rules
+    :return: problem (list of clauses to solve)
+    """
+
+    problem = []
+    with open(rules_input, 'r') as f:
+        lines = f.read().splitlines() #TODO generalize
+
+        firstline = True
+
+        # for each word in the line:
+        for line in lines:
+            # skip first line
+            if firstline:
+                firstline = False
+                continue
+
+            rule = line.split()
+
+            # get rid of the DIMACS 0
+            del rule[-1]
+
+            # build the problem
+            clause = [int(i) for i in rule]
+            problem.append(clause)
+
+    variables = list(set(abs(var) for clause in problem for var in clause))
+
+    return problem, variables
+
+def eliminate_known_vars(problem, data, sud_input):
+    """
+    Takes a DIMACS file with variables which are already given in the problem and assigns those variables accordingly.
+    :param problem: The current problem which is a list of clauses.
+    :param data: Dictionary storing assignments of variables.
+    :param sud_input: The name of the DIMACS file containing known variables.
+    :return: problem (updated problem), data (updated data).
+    """
+
+
+    with open(sud_input, 'r') as f:
+        lines = f.read().splitlines()
+
+        for line in lines:
+
+            known_var_assignment = line.split()
+
+            # get rid of the DIMACS 0
+            del known_var_assignment[-1]
+
+            known_var_assignment = int(known_var_assignment[0])
+
+    # for known_var_assignment in [118, 233, 327, 246, 359, 372, 425, 467, 554, 565, 577, 641, 683, 731, 786, 798, 838, 845, 881, 929, 974]:
+
+            variable = abs(known_var_assignment)
+
+            # a minus sign means "not", therefore the variable needs to be assigned to false if negative number
+            if known_var_assignment < 0:
+                var_assignment = False
+            else:
+                var_assignment = True
+
+            # update problem with this new assignment
+            problem = update_problem(problem, variable, var_assignment)
+
+            # keep track of the assignments
+            data = update_data(data, variable, var_assignment)
+
+
+
+    #  DEBUG: UNCOMMENT THIS IN ORDER TO TEST IF SOLUTION FROM solution.txt FILE IS CORRECT
+    # with open("solution.txt", 'r') as f:
+    #     lines = f.read().splitlines()
+    #
+    #     for line in lines:
+    #
+    #         known_var_assigment = line.split()
+    #
+    #         # get rid of the DIMACS 0
+    #         del known_var_assigment[-1]
+    #
+    #         known_var_assigment = int(known_var_assigment[0])
+    #
+    #         variable = abs(known_var_assigment)
+    #
+    #         # a minus sign means "not", therefore the variable needs to be assigned to false if negative number
+    #         if known_var_assigment < 0:
+    #             var_assignment = False
+    #         else:
+    #             var_assignment = True
+    #
+    #         # update problem with this new assignment
+    #         problem = update_problem(problem, variable, var_assignment)
+    #
+    #         # keep track of the assignments
+    #         data = update_data(data, variable, var_assignment)
+    #
+    #     print("AFTER kNOWN", len(problem))
+    #     print(problem)
+
+    return problem, data
+
+def filter_tautologies(problem):
+    """
+    Filters tautologies from the problem and returns this simplified problem.
+    :param problem: The current problem which is a list of clauses.
+    :return: new_problem (problem without tautologies).
+    """
+    new_problem = []
+
+    # detect if there is a tautology
+    for clause in problem:
+        new_clause = copy.deepcopy(clause)
+
+        clause_satisfied = False
+        for literal in clause:
+
+            # if the counter part of a literal is within the clause, there exists a tautology
+            if (literal * - 1) in clause:
+                # so clause will always be satisfied
+                clause_satisfied = True
+
+        # only keep the unsatisfied clauses
+        if not clause_satisfied:
+            new_problem.append(new_clause)
+
+    return new_problem
 
 
 def simplify_clauses(problem, data, variables):
 
-    # initialize dictionary
+    # to keep track of pure literals
     pure_literal_dict = {}
 
-    # initialize variable to indicate whether the problem can still be simplified
+    # indicates if the problem can still be simplified
     simplifiable = True
 
-    count = 0
-    # loop while the problem still shows some changes
+    # experiment data
+    nr_unit_clauses = 0
+    nr_pure_literals = 0
+
+    # simplify until problem is solved or problem cannot longer be simplified
     while len(problem) > 0 and simplifiable:
 
         simplifiable = False
+
         ###############################################
         # step 1, simplify using true/false variables #
         ###############################################
 
         new_problem = []
 
-        for i, clause in enumerate(problem):
+        for clause in problem:
             new_clause = list(np.copy(clause))
 
-            remove = False
-            for j, literal in enumerate(clause):
+            clause_satisfied = False
+            for literal in clause:
 
-                # TODO check if right elements are deleted
                 if abs(literal) in data['true']:
 
                     # check if it is a negative, remove the literal if it is a negative
-                    # TODO create function for this
                     if literal < 0:
                         # remove literal from clause, don't use INDEX!
                         new_clause.remove(literal)
@@ -68,7 +435,7 @@ def simplify_clauses(problem, data, variables):
 
                     # remove the clause if literal within is true
                     else:
-                        remove = True
+                        clause_satisfied = True
                         simplifiable = True
 
                 elif abs(literal) in data['false']:
@@ -79,16 +446,15 @@ def simplify_clauses(problem, data, variables):
 
                     # remove the clause if literal within is false
                     else:
-                        remove = True
+                        clause_satisfied = True
                         simplifiable = True
 
             # append new clause to new problem
-            if not remove:
+            if not clause_satisfied:
                 new_problem.append(new_clause)
 
         # save changed problem
         problem = new_problem
-
 
         ################################
         # step 2, simplify using rules #
@@ -98,8 +464,6 @@ def simplify_clauses(problem, data, variables):
         for var in variables:
             pure_literal_dict[var] = {"pos": 0, "neg": 0}
 
-        # keep track of what the new problem will hold
-        new_problem = []
 
         # loop through problem
         for i, clause in enumerate(problem):
@@ -109,18 +473,25 @@ def simplify_clauses(problem, data, variables):
             ##############################
 
             if len(clause) == 1:
-                data = unit_clause_simplification(problem, data, i)
+                nr_unit_clauses += 1
+
+                var = problem[i][0]
+
+                # if the variable is positive, it has to be true in order for the clause to be true
+                if var > 0:
+                    if abs(var) not in data['false']:
+                        data['true'].add(abs(var))
+                # and vice versa
+                else:
+                    if abs(var) not in data['true']:
+                        data['false'].add(abs(var))
+
 
             ###############################
             # Tautology and pure literals #
             ###############################
 
-            taut = False
             for literal in clause:
-                # if the counter part of a literal is within the clause, there exists a tautology
-                if (literal * - 1) in clause:
-                    taut = True
-                    simplifiable = True
 
                 # keep track of positive and negative occurences of literals to find pure literals
                 if literal > 0:
@@ -128,11 +499,6 @@ def simplify_clauses(problem, data, variables):
 
                 elif literal < 0:
                     pure_literal_dict[abs(literal)]["neg"] += 1
-
-            if not taut:
-                new_problem.append(clause)
-
-        problem = new_problem
 
         # loop through the pure literal dict to find whether we have pure literals
         for literal in pure_literal_dict:
@@ -143,311 +509,28 @@ def simplify_clauses(problem, data, variables):
             # check whether one of them is equal to 0:
             # if there are no positives, set the literal to false
             if pos == 0 and pos != neg:
-                data['false'].append(literal)
-                try:
-                    data['unk'].remove(literal)
-                except:
-                    pass
+                if literal not in data['true']:
+                    data['false'].add(literal)
+                    simplifiable = True
 
-                simplifiable = True
+                    # experiment data
+                    nr_pure_literals += 1
 
             # if there are no negatives, set the literal to true
             elif neg == 0 and pos != neg:
-                data['true'].append(literal)
-                try:
-                    data['unk'].remove(literal)
-                except:
-                    pass
+                if literal not in data['false']:
+                    data['true'].add(literal)
+                    simplifiable = True
 
-                simplifiable = True
+                    # experiment data
+                    nr_pure_literals += 1
 
-        data['false'] = list(set(data['false']))
-        data['true'] = list(set(data['true']))
+    # TODO save this in the while loop or after everything is done??
+
+    globals.experiment_data['pures'].append(nr_pure_literals)
+    globals.experiment_data['units'].append(nr_unit_clauses)
 
     return problem, data
 
-
-def SATsolver(sud_input, rules_input):
-    '''
-    This function takes as input the DIMACS format of a sudoku and the DIMACS format of the sudoku rules to correctly
-    Solve a sudoku
-    '''
-
-    # TODO might have to change this into one file
-
-    #####################
-    # Read sudoku rules #
-    #####################
-
-    problem = []
-
-    with open(rules_input, 'r') as f:
-        lines = f.read().splitlines()
-
-        firstline = True
-
-        # for each word in the line:
-        for line in lines:
-
-            if firstline:
-                firstline = False
-                continue
-
-            # convert string holding rules to list of literals (clause)
-            rule = line.split()
-            del rule[-1]
-            rule = [int(i) for i in rule]
-
-            # insert the clause into the problem
-            problem.append(rule)
-
-    #####################
-    # Extract variables #
-    #####################
-
-    variables = list(set(abs(var) for clause in problem for var in clause))
-    data = {'true': [], 'false': [], 'unk': []}
-
-    # set all variables to unknown
-    for var in variables:
-        data['unk'].append(var)
-
-    with open(sud_input, 'r') as f:
-        lines = f.read().splitlines()
-
-        for line in lines:
-
-            rule = line.split()
-            del rule[-1]
-
-            for var in rule:
-                data['true'].append(int(var))
-
-    #hardest_sudoku = [118, 233, 327, 246, 359, 372, 425, 467, 554, 565, 577, 641, 683, 731, 786, 798, 838, 845, 881, 929, 974]
-    #data['true'] = hardest_sudoku
-
-    ################################
-    ####         Solve         #####
-    ################################
-
-    # initialize tree dictionary, node, bool_data, dictionary
-    tree = {}
-
-    count = 0
-
-    # set the previous literal to be 0 at the start, so we can find the starting point in the tree
-    prev_literal = 0
-
-    # keep track of the number of splits
-    nr_splits = 0
-
-    while len(problem) > 0:
-        count += 1
-        ############
-        # Simplify #
-        ############
-
-        problem, data = simplify_clauses(problem, data, variables)
-
-
-        # initialize the unknown starting variables
-        if count == 1:
-            unknown_starts = list(np.copy(data['unk']))
-
-
-        ######################
-        # Split if necessary #
-        ######################
-
-        # check if we have an empty clause
-        empty = False
-        for clause in problem:
-            if not clause:
-                empty = True
-
-        # check if necessary
-        if len(problem) > 0:
-
-            # apply split
-            # pick random value from unknowns and set it to either true or false
-            if len(data['unk']) > 0 and not empty:
-
-                ###########################
-                # choose literal in split #
-                ###########################
-
-                # rewrite dictionary with other pointers
-                old_data = {**data}
-                old_data['unk'] = list(np.copy(data['unk']))
-                old_data['true'] = list(np.copy(data['true']))
-                old_data['false'] = list(np.copy(data['false']))
-
-                literal, data = DP_pick_literal(data['unk'], data)
-
-                # set split into dictionary tree
-                save = [problem, old_data, prev_literal]
-                tree[literal] = save
-
-                # save this literal as the previous for the next split
-                prev_literal = literal
-
-                nr_splits += 1
-
-            # if this path returns an unsatisfiable configuration,
-            # traverse back through the tree and try different splits
-            else:
-
-                # so this is the previous problem!
-                #print(tree[prev_literal][0])
-
-                problem, data, tree, literal = backtrack(tree, data, literal, unknown_starts, [])
-
-                prev_literal = literal
-                #if chosen_lit is not None:
-                #    literal = chosen_lit
-
-            print(tree.keys())
-
-        else:
-            return data["true"]
-
-        # check if dead end!
-
-
-        ############################
-        # step 4, rinse and repeat #
-        ############################
-
-"""
-START WITH A SIMPLE BACKTRACK OF ONE VARIABLE
-"""
-def backtrack(tree, data, literal, unknown_starts, seen_literals):
-
-    # step 1, get all the old values back
-    old_problem = tree[literal][0]
-
-    old_data = tree[literal][1]
-
-
-    data_to_save = {**old_data}
-    data_to_save['unk'] = list(np.copy(data_to_save['unk']))
-    data_to_save['true'] = list(np.copy(data_to_save['true']))
-    data_to_save['false'] = list(np.copy(data_to_save['false']))
-
-
-    prev_literal = tree[literal][2]
-
-
-    # PREV LITERAL WILL LEAD YOU TO THE PREVIOUS PROBLEM
-
-    # step 2, check whether the counterpart of the variable has been used yet
-
-    # if both have been seen and they are the first choice, we choose a new starting point from the unknown start points
-    if -literal in tree.keys() and prev_literal == 0:
-
-        # pick a new starting unknown
-        literal, data = DP_pick_literal(unknown_starts, old_data)
-
-        # remove the literal from the unknown starts, since it will no longer be unknown
-        unknown_starts.remove(abs(literal))
-
-        # now reinitialize tree (since the previous literal was 0 anyway) old entries
-        tree = {}
-        tree[literal] = [old_problem, data_to_save, prev_literal]
-
-        #return old_problem, data, tree, literal
-
-
-    # if it has, backtrack, let's say it has not yet
-    elif -literal in tree.keys():
-
-        # use the prev literal found in the node until this is no longer true
-        seen_literals.append(literal)
-        seen_literals.append(-literal)
-        seen_literals = list(set(seen_literals))
-
-        seen_literals = backtrack(tree, data, prev_literal, unknown_starts, seen_literals)
-        return seen_literals
-
-        # so we use recursion until we end up in the old loop
-        #print("QUITTING")
-        #quit()
-
-    # start with what happens if the variable has not yet been seen
-    else:
-        # flip the variable of the literal, by moving it from true to false or vice versa, depending on value
-        # use the CURRENT data for this, but not the current problem
-
-        # if it is a negative, remove it from false and insert it to true
-        if literal < 0:
-            data['false'].remove(abs(literal))
-            data['true'].append(abs(literal))
-
-            # sanity check
-            #if abs(literal) in data['false']:
-            #    print("FOUND LITERAL " + str(literal) + " IN THE FALSE LIST")
-
-        else:
-            data['true'].remove(abs(literal))
-            data['false'].append(abs(literal))
-
-            # sanity check
-            # if abs(literal) in data['true']:
-            #    print("FOUND LITERAL " + str(literal) + " IN THE TRUE LIST")
-
-        #print("TREE:")
-        #print(tree.keys())
-        #print("INSERTING " + str(literal) + " INTO THE TREE")
-        # since the literal has been flipped, we insert its counterpart
-        # into the tree with the old problem and the new data
-
-        # misschien hier niet old data, dan zit je namelijk meteen weer vast
-        # TODO CHECK WAT VOOR DATA HIER UITKOMT VERGELEKEN MET DE COUNTERPICK
-
-        tree[-literal] = [old_problem, old_data, prev_literal]
-
-        for lit in seen_literals:
-            del tree[lit]
-
-        print("BACK TO SPLITTING")
-
-        #print()
-
-
-
-    # step 3, use this and recheck the problem, for this we return the OLD_PROBLEM and the MANIPULATED CURRENT data
-
-    return old_problem, data, tree, literal
-
-def DP_pick_literal(choose_from, data):
-
-    # choose variable to be flipped
-    literal = random.choice(choose_from)
-
-    # remove this variable from the unknown variables
-    data['unk'].remove(literal)
-
-    # randomly set variable to true or false
-    x = random.random()
-    if x >= 0.5:
-        data['true'].append(literal)
-
-    else:
-        data['false'].append(literal)
-
-        # set to minus value to indicate that a value of false was chosen (for purpose of the tree dict)
-        literal = -literal
-
-    return literal, data
-
-
-solution = SATsolver("output.txt", "sudoku-rules.txt")
-
-sudoku = np.zeros((9,9))
-
-for code in solution:
-    code = str(code)
-
-    sudoku[int(code[0]) - 1, int(code[1]) - 1] = int(code[2])
-
-print(sudoku)
+if __name__ == '__main__':
+    main()

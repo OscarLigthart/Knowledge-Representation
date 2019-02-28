@@ -3,7 +3,7 @@ import random
 import sys
 import numpy as np
 
-from Heuristics import MOM_function, JW_function, x_wing, y_wing
+from Heuristics import MOM_function, JW_function, x_wing, y_wing, naked_pairs, naked_triples
 
 import globals
 
@@ -25,6 +25,7 @@ def main():
 
     SATsolver("output.txt", "sudoku-rules.txt")
     print('The script took {0} seconds!'.format(time.time() - startTime))
+    print(globals.experiment_data['splits'])
 
 def SATsolver(sud_input, rules_input):
 
@@ -47,7 +48,9 @@ def SATsolver(sud_input, rules_input):
         sys.stdout.write("This problem is unsatisfiable.")
 
     else:
-        print("SOLVED") # DEBUG
+        print("SOLVED")
+        print(globals.experiment_data['splits'])# DEBUG
+        print(globals.experiment_data['naked-triples-removed'])
 
 
 def solve_with_recursion(problem, data, variables):
@@ -60,28 +63,12 @@ def solve_with_recursion(problem, data, variables):
     :return: bool (True if the problem is satisfied, False if the problem is unsatisfiable).
     """
 
-    # first check for x-wing heuristic
-    #problem, data, nr_x_wings, nr_x_removed = x_wing(problem, data)
-
-
-    #globals.experiment_data['x-wings'] += nr_x_wings
-    #globals.experiment_data['x-removed'] += nr_x_removed
-
-
-    # check for y-wing heuristic
-    #problem, data, nr_y_wings, nr_y_removed = y_wing(problem, data)
-
-
-    #globals.experiment_data['y-wings'] += nr_y_wings
-    #globals.experiment_data['y-removed'] += nr_y_removed
-
-
     # simplification
     problem, data = simplify_clauses(problem, data, variables)
 
     globals.experiment_data['clauses'].append(len(problem))
 
-    print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>LENGTH", len(problem)) # DEBUG
+    #print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>LENGTH", len(problem)) # DEBUG
 
     if contains_empty_clause(problem):
         return False # UNSATISFIED
@@ -89,7 +76,7 @@ def solve_with_recursion(problem, data, variables):
     if problem == []:
         # then the current assignments are a solution to this problem
 
-        print("This the solution", data) # DEBUG
+        #print("This the solution", data) # DEBUG
 
         write_solution_to_DIMACS_file(data)
 
@@ -98,7 +85,6 @@ def solve_with_recursion(problem, data, variables):
     # split
     new_problem, new_data, variable, var_assignment = split(problem, data, variables)
 
-
     globals.experiment_data['splits'] += 1
 
     SAT = solve_with_recursion(new_problem, new_data, variables)
@@ -106,7 +92,8 @@ def solve_with_recursion(problem, data, variables):
     if SAT:
         return True
     else:
-        print("backtrack") # DEBUG
+        #print("backtrack") # DEBUG
+        #print(len(data['false']))
 
         globals.experiment_data['backtracks'] += 1
 
@@ -118,7 +105,7 @@ def solve_with_recursion(problem, data, variables):
         elif var_assignment == False:
             var_assignment = True
 
-        # now this variable has a value assigned, the problem will change: so update the problem
+        # now this variable has a value assigned, the problem will change: so update the problem, but use data here?
         new_problem = update_problem(problem, variable, var_assignment)
 
         # remember the value we assigned to this variable by storing it in the data
@@ -176,7 +163,6 @@ def update_problem(problem, variable, var_assignment):
 
     return new_problem
 
-
 def update_data(data, variable, var_assignment):
     """
     Updates the dictionary that stores the assignments of variables given a variable and its assignment.
@@ -202,21 +188,21 @@ def split(problem, data, variables):
     :return: new_problem, new_data, variable (the variable picked during this split),
         var_assignment (the assignment of the variable in during split).
     """
-    print("SPLIT") # DEBUG
+    #print("SPLIT") # DEBUG
 
     # pick randomly a variable that still occurs in the current problem
-    variable = abs(random.choice(random.choice(problem)))
+    #variable = abs(random.choice(random.choice(problem)))
 
     # and randomly assign a value (true or false) to this variable
-    var_assignment = bool(random.getrandbits(1))
+    #var_assignment = bool(random.getrandbits(1))
 
     ##############
     # Heuristics #
     ##############
 
-    #variable, var_assignment = MOM_function(problem, 4)
+    variable, var_assignment = MOM_function(problem, 2)
 
-    variable, var_assignment = JW_function(problem)
+    #variable, var_assignment = JW_function(problem)
 
     # remember the value we assigned to this variable by storing it in the data
     new_data = update_data(data, variable, var_assignment)
@@ -319,7 +305,7 @@ def eliminate_known_vars(problem, data, sud_input):
 
             known_var_assignment = int(known_var_assignment[0])
 
-    # for known_var_assignment in [118, 233, 327, 246, 359, 372, 425, 467, 554, 565, 577, 641, 683, 731, 786, 798, 838, 845, 881, 929, 974]:
+    #for known_var_assignment in [118, 233, 327, 246, 359, 372, 425, 467, 554, 565, 577, 641, 683, 731, 786, 798, 838, 845, 881, 929, 974]:
 
             variable = abs(known_var_assignment)
 
@@ -400,6 +386,7 @@ def simplify_clauses(problem, data, variables):
 
     # to keep track of pure literals
     pure_literal_dict = {}
+    all_removed = []
 
     # indicates if the problem can still be simplified
     simplifiable = True
@@ -455,6 +442,12 @@ def simplify_clauses(problem, data, variables):
 
         # save changed problem
         problem = new_problem
+
+        old_data = copy.deepcopy(data)
+        # check for y-wing heuristic --> to get more results
+        #problem, data, nr_y_wings, nr_y_removed = y_wing(problem, data)
+        #globals.experiment_data['y-wings'] += nr_y_wings
+        #globals.experiment_data['y-removed'] += nr_y_removed
 
         ################################
         # step 2, simplify using rules #
@@ -524,6 +517,21 @@ def simplify_clauses(problem, data, variables):
 
                     # experiment data
                     nr_pure_literals += 1
+
+        # todo if something changed, simplifiable needs to be set to true
+        problem, data,nr_pairs_removed, nr_pairs = naked_pairs(problem, data)
+        # globals.experiment_data['naked-pairs-removed'] += nr_pairs_removed
+        # globals.experiment_data['nr-naked-pairs'] += nr_pairs
+
+        #problem, data, nr_triples_removed, nr_triples = naked_triples(problem, data)
+        #globals.experiment_data['naked-triples-removed'] += nr_triples_removed
+        #globals.experiment_data['nr-naked-triples'] += nr_triples
+
+        #problem, data, nr_y_wings, nr_y_removed, removed = x_wing(problem, data)
+        #problem, data, nr_y_wings, nr_y_removed = y_wing(problem, data)
+
+        if data['true'] != old_data['true'] or data['false'] != old_data['false']:
+            simplifiable = True
 
     # TODO save this in the while loop or after everything is done??
 

@@ -9,12 +9,17 @@ NR_REPLICATES = 1 # set the number of replicates
 METHOD = "JW-y-wing"
 
 
+
 def main():
 
 
     sudoku_files = {"simple": "sudokus/50_simple_sudokus.txt",
                     "easy": "sudokus/50_easy_sudokus.txt",
                     "intermediate": "sudokus/50_intermediate_sudokus.txt",
+                    "expert": "sudokus/50_expert_sudokus.txt"}
+
+
+    sudoku_files = {"intermediate": "sudokus/50_intermediate_sudokus.txt",
                     "expert": "sudokus/50_expert_sudokus.txt"}
 
     # UNCOMMENT FOR TEST

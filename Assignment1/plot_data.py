@@ -5,21 +5,20 @@ import numpy as np
 
 def main():
 
-    # DP_data_files = {"simple": "data/DP_simple.p",
-    #                 "easy": "data/DP_easy.p",
-    #                 "intermediate": "data/DP2_intermediate.p",
-    #                 "expert": "data/DP2_expert.p"}
+    DP_data_files = {"simple": "data/DP_simple.p",
+                    "easy": "data/DP_easy.p",
+                    "intermediate": "data/DP2_intermediate.p",
+                    "expert": "data/DP2_expert.p"}
     #
     # JW_data_files = {"simple": "data/JW_simple.p",
     #               "easy": "data/JW_easy.p",
     #               "intermediate": "data/JW_intermediate.p",
     #               "expert": "data/JW_expert.p"}
     #
-    MOM_data_files = {"simple": "data/MOM-2_simple.p",
-                     "easy": "data/MOM-2_easy.p",
-                     "intermediate": "data/MOM-2_intermediate.p",
-                     "expert": "data/MOM-2_expert.p"}
-
+    # MOM_data_files = {"simple": "data/MOM_simple.p",
+    #                  "easy": "data/MOM_easy.p",
+    #                  "intermediate": "data/MOM_intermediate.p",
+    #                  "expert": "data/MOM_expert.p"}
 
 
 

@@ -5,8 +5,8 @@ from Heuristics import MOM_function, JW_function, x_wing, y_wing
 import time
 import globals
 
-NR_REPLICATES = 1 # set the number of replicates
-METHOD = "DP"
+NR_REPLICATES = 25 # set the number of replicates
+METHOD = "DP2"
 
 
 def main():
@@ -15,6 +15,10 @@ def main():
     sudoku_files = {"simple": "sudokus/50_simple_sudokus.txt",
                     "easy": "sudokus/50_easy_sudokus.txt",
                     "intermediate": "sudokus/50_intermediate_sudokus.txt",
+                    "expert": "sudokus/50_expert_sudokus.txt"}
+
+
+    sudoku_files = {"intermediate": "sudokus/50_intermediate_sudokus.txt",
                     "expert": "sudokus/50_expert_sudokus.txt"}
 
     # UNCOMMENT FOR TEST
@@ -37,10 +41,8 @@ def main():
         # go over each sudoku in the current file
         for sudoku_nr in range(number_of_sudokus):
 
-            # create new data storage
-            globals.initialize()
-            globals.experiment_data["level"] = level
-            globals.experiment_data["sudoku_nr"] = sudoku_nr
+            print(sudoku_nr, level)
+
 
             # write current sudoku from .txt file in DIMACS format
             sud2sat_experiments(sudoku_file_path, sudoku_nr)
@@ -48,6 +50,11 @@ def main():
             # run the SAT solver on the current sudoku for the give number of replicates
             replicates = []
             for i in range(NR_REPLICATES):
+                # create new data storage
+                globals.initialize()
+                globals.experiment_data["level"] = level
+                globals.experiment_data["sudoku_nr"] = sudoku_nr
+
                 startTime = time.time()
                 SATsolver("sudoku_DIMACS_format.txt", "sudoku-rules.txt")
 

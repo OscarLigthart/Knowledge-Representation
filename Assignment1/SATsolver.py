@@ -27,7 +27,7 @@ def main():
     print('The script took {0} seconds!'.format(time.time() - startTime))
     print(globals.experiment_data['splits'])
 
-def SATsolver(sud_input, rules_input):
+def SATsolver(sud_input, rules_input, ARGS=None):
 
     # get the problem
     problem, variables = read_rules(rules_input)
@@ -36,24 +36,23 @@ def SATsolver(sud_input, rules_input):
     data = {'true': set(), 'false': set()}
 
     # eliminate the known variable from the problem
-    problem, data = eliminate_known_vars(problem, data, sud_input)
+    if ARGS == None:
+        problem, data = eliminate_known_vars(problem, data, sud_input)
 
     # filter tautologies from problem
     problem = filter_tautologies(problem) ### TODO sudokos do not contain tautologies so this needs to be tested
 
     # solve
-    SAT = solve_with_recursion(problem, data, variables)
+    SAT = solve_with_recursion(problem, data, variables, ARGS)
 
     if SAT == False:
         sys.stdout.write("This problem is unsatisfiable.")
 
     else:
         print("SOLVED")
-        print(globals.experiment_data['splits'])# DEBUG
-        print(globals.experiment_data['naked-triples-removed'])
 
 
-def solve_with_recursion(problem, data, variables):
+def solve_with_recursion(problem, data, variables, ARGS):
     """
     Simplify and split. If empty clause then backtrack and reassign.
     Until a) the problem is satisfied (write solution to solution.txt in DIMACS format) and return True
@@ -68,33 +67,31 @@ def solve_with_recursion(problem, data, variables):
 
     globals.experiment_data['clauses'].append(len(problem))
 
-    #print(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>LENGTH", len(problem)) # DEBUG
-
     if contains_empty_clause(problem):
         return False # UNSATISFIED
 
     if problem == []:
         # then the current assignments are a solution to this problem
-
-        #print("This the solution", data) # DEBUG
+        for var in variables:
+            if var not in data['true']:
+                data['false'].add(var)
 
         write_solution_to_DIMACS_file(data)
 
         return True # SATISFIED
 
     # split
-    new_problem, new_data, variable, var_assignment = split(problem, data, variables)
+    new_problem, new_data, variable, var_assignment = split(problem, data, variables, ARGS)
 
     globals.experiment_data['splits'] += 1
 
-    SAT = solve_with_recursion(new_problem, new_data, variables)
+    SAT = solve_with_recursion(new_problem, new_data, variables, ARGS)
 
     if SAT:
         return True
     else:
-        #print("backtrack") # DEBUG
-        #print(len(data['false']))
 
+        # keep track of number of backtracks made
         globals.experiment_data['backtracks'] += 1
 
         # reassign variable:
@@ -111,7 +108,7 @@ def solve_with_recursion(problem, data, variables):
         # remember the value we assigned to this variable by storing it in the data
         new_data = update_data(data, variable, var_assignment)
 
-        return solve_with_recursion(new_problem, new_data, variables)
+        return solve_with_recursion(new_problem, new_data, variables, ARGS)
 
 
 def update_problem(problem, variable, var_assignment):
@@ -180,7 +177,7 @@ def update_data(data, variable, var_assignment):
 
     return new_data
 
-def split(problem, data, variables):
+def split(problem, data, variables, ARGS):
     """
     Randomly assigns an yet unassigned variable in the problem to True or False
     :param problem: The current problem which is a list of clauses.
@@ -188,27 +185,55 @@ def split(problem, data, variables):
     :return: new_problem, new_data, variable (the variable picked during this split),
         var_assignment (the assignment of the variable in during split).
     """
-    #print("SPLIT") # DEBUG
 
-    # pick randomly a variable that still occurs in the current problem
-    #variable = abs(random.choice(random.choice(problem)))
+    if ARGS != None:
 
-    # and randomly assign a value (true or false) to this variable
-    #var_assignment = bool(random.getrandbits(1))
+        if ARGS.heuristic == "S1":
+            # pick randomly a variable that still occurs in the current problem
+            variable = abs(random.choice(random.choice(problem)))
 
-    ##############
-    # Heuristics #
-    ##############
+            # and randomly assign a value (true or false) to this variable
+            var_assignment = bool(random.getrandbits(1))
 
-    variable, var_assignment = MOM_function(problem, 2)
+        elif ARGS.heuristic == "S2":
+            variable, var_assignment = JW_function(problem)
 
-    #variable, var_assignment = JW_function(problem)
+        elif ARGS.heuristic == "S3":
+            variable, var_assignment = MOM_function(problem, 2)
 
-    # remember the value we assigned to this variable by storing it in the data
-    new_data = update_data(data, variable, var_assignment)
+        else:
+            print("Not implemented Heuristic: " + ARGS.heuristic)
+            quit()
 
-    # now this variable has a value assigned, the problem will change: so update the problem
-    new_problem = update_problem(problem, variable, var_assignment)
+        # remember the value we assigned to this variable by storing it in the data
+        new_data = update_data(data, variable, var_assignment)
+
+        # now this variable has a value assigned, the problem will change: so update the problem
+        new_problem = update_problem(problem, variable, var_assignment)
+
+    else:
+
+        # pick randomly a variable that still occurs in the current problem
+        #variable = abs(random.choice(random.choice(problem)))
+
+        # and randomly assign a value (true or false) to this variable
+        #var_assignment = bool(random.getrandbits(1))
+
+        ##############
+        # Heuristics #
+        ##############
+
+        variable, var_assignment = MOM_function(problem, 2)
+
+        #variable, var_assignment = JW_function(problem)
+
+        # remember the value we assigned to this variable by storing it in the data
+        new_data = update_data(data, variable, var_assignment)
+
+        # now this variable has a value assigned, the problem will change: so update the problem
+        new_problem = update_problem(problem, variable, var_assignment)
+
+
 
     return new_problem, new_data, variable, var_assignment
 
@@ -235,17 +260,14 @@ def write_solution_to_DIMACS_file(data):
     solution_file = open('solution.txt', 'w')
     solution_file.truncate(0)  # clears the solution.txt file
 
-
-    # DEBUG: UNCOMMENT THIS IN ORDER TO TEST IF SOLUTION FROM solution.txt FILE IS CORRECT
-    # for i, var in enumerate(data["false"]):
-    #     solution_file.write("-"+str(var) + " 0\n")
-    #
-
     for i, var in enumerate(data["true"]):
-        solution_file.write(str(var) + " 0")
+        solution_file.write(str(var) + " 0\n")
+
+    for i, var in enumerate(data["false"]):
+        solution_file.write("-"+str(var) + " 0")
 
         # no enter after last line
-        if i != len(data["true"]) - 1:
+        if i != len(data["false"]) - 1:
             solution_file.write("\n")
 
     solution_file.close()
@@ -305,6 +327,7 @@ def eliminate_known_vars(problem, data, sud_input):
 
             known_var_assignment = int(known_var_assignment[0])
 
+    # uncomment to try most difficult sudoku on the planet
     #for known_var_assignment in [118, 233, 327, 246, 359, 372, 425, 467, 554, 565, 577, 641, 683, 731, 786, 798, 838, 845, 881, 929, 974]:
 
             variable = abs(known_var_assignment)
@@ -320,38 +343,6 @@ def eliminate_known_vars(problem, data, sud_input):
 
             # keep track of the assignments
             data = update_data(data, variable, var_assignment)
-
-
-
-    #  DEBUG: UNCOMMENT THIS IN ORDER TO TEST IF SOLUTION FROM solution.txt FILE IS CORRECT
-    # with open("solution.txt", 'r') as f:
-    #     lines = f.read().splitlines()
-    #
-    #     for line in lines:
-    #
-    #         known_var_assigment = line.split()
-    #
-    #         # get rid of the DIMACS 0
-    #         del known_var_assigment[-1]
-    #
-    #         known_var_assigment = int(known_var_assigment[0])
-    #
-    #         variable = abs(known_var_assigment)
-    #
-    #         # a minus sign means "not", therefore the variable needs to be assigned to false if negative number
-    #         if known_var_assigment < 0:
-    #             var_assignment = False
-    #         else:
-    #             var_assignment = True
-    #
-    #         # update problem with this new assignment
-    #         problem = update_problem(problem, variable, var_assignment)
-    #
-    #         # keep track of the assignments
-    #         data = update_data(data, variable, var_assignment)
-    #
-    #     print("AFTER kNOWN", len(problem))
-    #     print(problem)
 
     return problem, data
 
@@ -386,7 +377,6 @@ def simplify_clauses(problem, data, variables):
 
     # to keep track of pure literals
     pure_literal_dict = {}
-    all_removed = []
 
     # indicates if the problem can still be simplified
     simplifiable = True
@@ -443,11 +433,8 @@ def simplify_clauses(problem, data, variables):
         # save changed problem
         problem = new_problem
 
+        # keep copy of data to see if anything changes during further simplification
         old_data = copy.deepcopy(data)
-        # check for y-wing heuristic --> to get more results
-        #problem, data, nr_y_wings, nr_y_removed = y_wing(problem, data)
-        #globals.experiment_data['y-wings'] += nr_y_wings
-        #globals.experiment_data['y-removed'] += nr_y_removed
 
         ################################
         # step 2, simplify using rules #
@@ -518,23 +505,25 @@ def simplify_clauses(problem, data, variables):
                     # experiment data
                     nr_pure_literals += 1
 
-        # todo if something changed, simplifiable needs to be set to true
-        problem, data,nr_pairs_removed, nr_pairs = naked_pairs(problem, data)
-        # globals.experiment_data['naked-pairs-removed'] += nr_pairs_removed
-        # globals.experiment_data['nr-naked-pairs'] += nr_pairs
+        # todo, HOW DO WE ASSIGN THESE?
+        #problem, data,nr_pairs_removed, nr_pairs = naked_pairs(problem, data)
+        #globals.experiment_data['naked-pairs-removed'] += nr_pairs_removed
+        #globals.experiment_data['nr-naked-pairs'] += nr_pairs
 
         #problem, data, nr_triples_removed, nr_triples = naked_triples(problem, data)
         #globals.experiment_data['naked-triples-removed'] += nr_triples_removed
         #globals.experiment_data['nr-naked-triples'] += nr_triples
 
-        #problem, data, nr_y_wings, nr_y_removed, removed = x_wing(problem, data)
-        #problem, data, nr_y_wings, nr_y_removed = y_wing(problem, data)
+        #problem, data, nr_x_wings, nr_x_removed, removed = x_wing(problem, data)
+        #globals.experiment_data['x-wings'] += nr_x_wings
+        #globals.experiment_data['x-removed'] += nr_x_removed
+
 
         if data['true'] != old_data['true'] or data['false'] != old_data['false']:
             simplifiable = True
 
-    # TODO save this in the while loop or after everything is done??
 
+    # keep track of amount of pure literals and unit clauses
     globals.experiment_data['pures'].append(nr_pure_literals)
     globals.experiment_data['units'].append(nr_unit_clauses)
 

@@ -6,7 +6,7 @@ import time
 import globals
 
 NR_REPLICATES = 1 # set the number of replicates
-METHOD = "DP"
+METHOD = "JW-y-wing"
 
 
 def main():
@@ -18,7 +18,8 @@ def main():
                     "expert": "sudokus/50_expert_sudokus.txt"}
 
     # UNCOMMENT FOR TEST
-    # sudoku_files = {"expert": "sudokus/50_expert_sudokus.txt"}
+    #sudoku_files = {"expert": "sudokus/50_expert_sudokus.txt"}
+    #sudoku_files = {"intermediate": "sudokus/50_intermediate_sudokus.txt"}
 
 
     for level, sudoku_file_path in sudoku_files.items():
@@ -31,16 +32,11 @@ def main():
 
 
         # UNCOMMENT FOR TEST
-        # number_of_sudokus = 5
-
+        #number_of_sudokus = 5
 
         # go over each sudoku in the current file
         for sudoku_nr in range(number_of_sudokus):
-
-            # create new data storage
-            globals.initialize()
-            globals.experiment_data["level"] = level
-            globals.experiment_data["sudoku_nr"] = sudoku_nr
+            print(sudoku_nr, level)
 
             # write current sudoku from .txt file in DIMACS format
             sud2sat_experiments(sudoku_file_path, sudoku_nr)
@@ -48,13 +44,19 @@ def main():
             # run the SAT solver on the current sudoku for the give number of replicates
             replicates = []
             for i in range(NR_REPLICATES):
+
+                # create new data storage
+                globals.initialize()
+                globals.experiment_data["level"] = level
+                globals.experiment_data["sudoku_nr"] = sudoku_nr
+
                 startTime = time.time()
                 SATsolver("sudoku_DIMACS_format.txt", "sudoku-rules.txt")
 
                 # store runtime
                 globals.experiment_data["runtime"] = time.time() - startTime
 
-                print(globals.experiment_data) # DEBUG
+                #print(globals.experiment_data) # DEBUG
 
                 replicates.append(globals.experiment_data)
 

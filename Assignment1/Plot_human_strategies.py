@@ -71,7 +71,7 @@ values = [value["data"] for value in MOM_data_to_plot.values()]
 std = [value["std"] for value in MOM_data_to_plot.values()]
 
 
-plt.plot(names, values, marker = 'o', label='MOMSs + all')
+plt.plot(names, values, marker = 'o', label='MOMS + all')
 
 plt.ylabel('Splits', fontsize=12)
 plt.xlabel('Sudoku level', fontsize=12)

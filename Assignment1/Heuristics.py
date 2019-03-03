@@ -77,7 +77,7 @@ def MOM_function(problem, k):
     # get highest value
     literal = max(MOM, key=MOM.get)
 
-    # two sided MOM?
+    # two sided MOM
     if MOM.get(literal, 0) >= MOM.get(-literal, 0):
         var_assignment = True
     else:
@@ -90,7 +90,7 @@ def naked_pairs(problem, data):
     This function identifies the naked-pairs on the sudoku board by looking at the remaining conflict clauses
     :param problem: conflict clauses
     :param data: variable assignments
-    :return:
+    :return: conflict clauses, altered variable assignments
     """
 
     nr_removed = 0
@@ -181,6 +181,13 @@ def naked_pairs(problem, data):
     return problem, data, nr_removed, nr_pairs
 
 def naked_triples(problem, data):
+    """
+    This function searches for the naked-triple pattern within the remaining conflict clauses and
+    safely removes the unknown literals from the problem.
+    :param problem: the remaining conflict clauses
+    :param data: the truth values assigned to literals
+    :return: remaining conflict clauses, altered truth value assignments
+    """
 
     nr_removed = 0
     nr_triple = 0

@@ -1,0 +1,28 @@
+This SAT solver was completely written in Python.
+Please use the command line below to test the code:
+
+python SAT.py --heuristic "S1" --sudoku_files "concatenated-sudoku.txt"
+
+Heuristics work for S1, S2 and S3. Please insert either one of them within the quotes.
+Please make sure the "concatenated-sudoku.txt" is a text file which holds a concatenation of the sudoku rules along with the given sudoku puzzle in DIMACS format (in that order).
+This .txt file has to be in the same folder as the python scripts.
+
+It is also possible to use one of the human strategies to solve a sudoku:
+
+python SAT.py --heuristic "S1" --sudoku_files "concatenated-sudoku.txt" --strategy "naked-pairs"
+
+For the strategies there is a choice of:
+ - naked-pairs
+ - naked-triples
+ - x-wings
+ - all
+
+Please insert any one of them into the quotes behind --strategy.
+
+If you have any questions regarding our code and submission, please contact us at either one of the below emails!
+
+ - oscarligthart@gmail.com
+ - vanessabotha96@gmail.com
+
+Thank you in advance!
+Vanessa & Oscar

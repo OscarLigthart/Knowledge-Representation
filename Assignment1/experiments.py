@@ -1,12 +1,12 @@
 import pickle
 from SATsolver import SATsolver
-from Heuristics import MOM_function, JW_function, x_wing, y_wing
+from Heuristics import MOM_function, JW_function, x_wing
 
 import time
 import globals
 
 NR_REPLICATES = 1 # set the number of replicates
-METHOD = "JW-y-wing"
+METHOD = "MOM"
 
 
 
@@ -19,8 +19,8 @@ def main():
                     "expert": "sudokus/50_expert_sudokus.txt"}
 
 
-    sudoku_files = {"intermediate": "sudokus/50_intermediate_sudokus.txt",
-                    "expert": "sudokus/50_expert_sudokus.txt"}
+    #sudoku_files = {"intermediate": "sudokus/50_intermediate_sudokus.txt",
+     #               "expert": "sudokus/50_expert_sudokus.txt"}
 
     # UNCOMMENT FOR TEST
     #sudoku_files = {"expert": "sudokus/50_expert_sudokus.txt"}

@@ -106,7 +106,12 @@ def refactor_data(data_files):
 
                 av_data_per_sudoku[level][sudoku_nr] = {"backtracks": {"av":0, "std":0},
                                                         "splits": {"av": 0, "std": 0},
-                                                         "nodes": {"av": 0, "std": 0}}
+                                                         "nodes": {"av": 0, "std": 0},
+                                                        'nr-naked-pairs': 0,
+                                                       'naked-pairs-removed': 0,
+                                                       'naked-triples-removed': 0,
+                                                       'nr-naked-triples': 0,
+                                                       'x-wings': 0, 'x-removed': 0,}
 
                 backtracks = []
                 splits = []
@@ -114,7 +119,7 @@ def refactor_data(data_files):
                     backtracks.append(replicate["backtracks"])
                     splits.append(replicate["splits"])
 
-
+                # get basics
                 av_data_per_sudoku[level][sudoku_nr]["backtracks"]["av"] = np.average(backtracks)
                 av_data_per_sudoku[level][sudoku_nr]["backtracks"]["std"] = np.std(backtracks)
 
@@ -125,21 +130,62 @@ def refactor_data(data_files):
                 av_data_per_sudoku[level][sudoku_nr]["nodes"]["av"] = np.average(backtracks) + np.average(splits)
                 av_data_per_sudoku[level][sudoku_nr]["nodes"]["std"] = np.std(backtracks) + np.std(splits)
 
+                ########################
+                # get further analysis #
+                ########################
+
+                # for naked pairs:
+                av_data_per_sudoku[level][sudoku_nr]["nr-naked-pairs"] += sudoku_results[0]["nr-naked-pairs"]
+                av_data_per_sudoku[level][sudoku_nr]["naked-pairs-removed"] += sudoku_results[0]["naked-pairs-removed"]
+
+                # for naked triples:
+                av_data_per_sudoku[level][sudoku_nr]["nr-naked-triples"] += sudoku_results[0]["nr-naked-triples"]
+                av_data_per_sudoku[level][sudoku_nr]["naked-triples-removed"] += sudoku_results[0]["naked-triples-removed"]
+
+                # for x-wings:
+                av_data_per_sudoku[level][sudoku_nr]["x-wings"] += sudoku_results[0]["x-wings"]
+                av_data_per_sudoku[level][sudoku_nr]["x-removed"] += sudoku_results[0]["x-removed"]
+
     refactored_data = {}
 
     for level, sudokus in av_data_per_sudoku.items():
 
         refactored_data[level] = {}
         refactored_data[level] = {"backtracks": {"av":0, "std":0},
-                                "splits": {"av": 0, "std": 0},
-                                 "nodes": {"av": 0, "std": 0}}
+                                  "splits": {"av": 0, "std": 0, "all": []},
+                                  "nodes": {"av": 0, "std": 0},
+                                  'nr-naked-pairs': 0,
+                                  'naked-pairs-removed': 0,
+                                  'naked-triples-removed': 0,
+                                  'nr-naked-triples': 0,
+                                  'x-wings': 0, 'x-removed': 0,
+                                  }
 
         backtracks = []
         splits = []
+
+        naked_pairs = []
+        naked_pairs_removed = []
+
+        naked_triples = []
+        naked_triples_removed = []
+
+        x_wings = []
+        x_removed = []
+
         for sudoku_nr, sudoku in sudokus.items():
 
             backtracks.append(sudoku["backtracks"]["av"])
             splits.append(sudoku["splits"]["av"])
+
+            naked_pairs.append(sudoku["nr-naked-pairs"])
+            naked_pairs_removed.append(sudoku["naked-pairs-removed"])
+
+            naked_triples.append(sudoku["nr-naked-triples"])
+            naked_triples_removed.append(sudoku["naked-triples-removed"])
+
+            x_wings.append(sudoku['x-wings'])
+            x_removed.append(sudoku['x-removed'])
 
         # av_splits = np.average(splits)
         # std_splits = np.std(splits)
@@ -152,9 +198,20 @@ def refactor_data(data_files):
 
         refactored_data[level]["splits"]["av"] = np.average(splits)
         refactored_data[level]["splits"]["std"] = np.std(splits)
+        refactored_data[level]["splits"]["all"] = splits
+
 
         refactored_data[level]["nodes"]["av"] = np.average(backtracks) + np.average(splits)
         refactored_data[level]["nodes"]["std"] = np.std(backtracks) + np.std(splits)
+
+        refactored_data[level]["nr-naked-pairs"] = np.average(naked_pairs)
+        refactored_data[level]["naked-pairs-removed"] = np.average(naked_pairs_removed)
+
+        refactored_data[level]["nr-naked-triples"] = np.average(naked_triples)
+        refactored_data[level]["naked-triples-removed"] = np.average(naked_triples_removed)
+
+        refactored_data[level]["x-wings"] = np.average(x_wings)
+        refactored_data[level]["x-removed"] = np.average(x_removed)
 
     return refactored_data
 

@@ -2,11 +2,8 @@ import copy
 import random
 import sys
 import numpy as np
-
-from Heuristics import MOM_function, JW_function, x_wing, y_wing, naked_pairs, naked_triples
-
+from Heuristics import MOM_function, JW_function, x_wing, naked_pairs, naked_triples
 import globals
-
 import time
 
 def main():
@@ -28,6 +25,13 @@ def main():
     print(globals.experiment_data['splits'])
 
 def SATsolver(sud_input, rules_input, ARGS=None):
+    """
+    This function applies the DP algorithm in a SAT solver to correctly solve a problem in CNF
+    :param sud_input: sudoku in DIMACS format
+    :param rules_input: sudoku rules in DIMACS format
+    :param ARGS: Paramters defined by user
+    :return: -
+    """
 
     # get the problem
     problem, variables = read_rules(rules_input)
@@ -40,7 +44,7 @@ def SATsolver(sud_input, rules_input, ARGS=None):
         problem, data = eliminate_known_vars(problem, data, sud_input)
 
     # filter tautologies from problem
-    problem = filter_tautologies(problem) ### TODO sudokos do not contain tautologies so this needs to be tested
+    problem = filter_tautologies(problem)
 
     # solve
     SAT = solve_with_recursion(problem, data, variables, ARGS)
@@ -63,7 +67,8 @@ def solve_with_recursion(problem, data, variables, ARGS):
     """
 
     # simplification
-    problem, data = simplify_clauses(problem, data, variables)
+    problem, data = simplify_clauses(problem, data, variables, ARGS)
+
 
     globals.experiment_data['clauses'].append(len(problem))
 
@@ -77,6 +82,17 @@ def solve_with_recursion(problem, data, variables, ARGS):
                 data['false'].add(var)
 
         write_solution_to_DIMACS_file(data)
+
+        # show sudoku
+        print()
+        print("The solution to the sudoku is:")
+        print()
+        sudoku = np.zeros((9,9), dtype=np.int64)
+        for literal in data['true']:
+            sudoku[int(str(literal)[0]) - 1, int(str(literal)[1]) - 1] = int(str(literal)[2])
+
+        show(sudoku)
+        print()
 
         return True # SATISFIED
 
@@ -327,9 +343,6 @@ def eliminate_known_vars(problem, data, sud_input):
 
             known_var_assignment = int(known_var_assignment[0])
 
-    # uncomment to try most difficult sudoku on the planet
-    #for known_var_assignment in [118, 233, 327, 246, 359, 372, 425, 467, 554, 565, 577, 641, 683, 731, 786, 798, 838, 845, 881, 929, 974]:
-
             variable = abs(known_var_assignment)
 
             # a minus sign means "not", therefore the variable needs to be assigned to false if negative number
@@ -373,7 +386,7 @@ def filter_tautologies(problem):
     return new_problem
 
 
-def simplify_clauses(problem, data, variables):
+def simplify_clauses(problem, data, variables, ARGS):
 
     # to keep track of pure literals
     pure_literal_dict = {}
@@ -505,22 +518,61 @@ def simplify_clauses(problem, data, variables):
                     # experiment data
                     nr_pure_literals += 1
 
-        # todo, HOW DO WE ASSIGN THESE?
-        #problem, data,nr_pairs_removed, nr_pairs = naked_pairs(problem, data)
-        #globals.experiment_data['naked-pairs-removed'] += nr_pairs_removed
-        #globals.experiment_data['nr-naked-pairs'] += nr_pairs
+        #############################
+        # Human-strategy heuristics #
+        #############################
 
-        #problem, data, nr_triples_removed, nr_triples = naked_triples(problem, data)
-        #globals.experiment_data['naked-triples-removed'] += nr_triples_removed
-        #globals.experiment_data['nr-naked-triples'] += nr_triples
+        # only apply naked-pair simplification
+        if ARGS != None:
+            if ARGS.strategy == "Naked-pairs":
+                problem, data,nr_pairs_removed, nr_pairs = naked_pairs(problem, data)
+                globals.experiment_data['naked-pairs-removed'] += nr_pairs_removed
+                globals.experiment_data['nr-naked-pairs'] += nr_pairs
 
-        #problem, data, nr_x_wings, nr_x_removed, removed = x_wing(problem, data)
-        #globals.experiment_data['x-wings'] += nr_x_wings
-        #globals.experiment_data['x-removed'] += nr_x_removed
+            # only apply naked-triple simplification
+            elif ARGS.strategy == "Naked-triples":
+                problem, data, nr_triples_removed, nr_triples = naked_triples(problem, data)
+                globals.experiment_data['naked-triples-removed'] += nr_triples_removed
+                globals.experiment_data['nr-naked-triples'] += nr_triples
 
+            # only apply x-wing simplification
+            elif ARGS.strategy == "x-wings,":
+                problem, data, nr_x_wings, nr_x_removed, removed = x_wing(problem, data)
+                globals.experiment_data['x-wings'] += nr_x_wings
+                globals.experiment_data['x-removed'] += nr_x_removed
 
+            # apply all simplifications
+            elif ARGS.strategy == "all":
+                problem, data, nr_pairs_removed, nr_pairs = naked_pairs(problem, data)
+                globals.experiment_data['naked-pairs-removed'] += nr_pairs_removed
+                globals.experiment_data['nr-naked-pairs'] += nr_pairs
+
+                problem, data, nr_triples_removed, nr_triples = naked_triples(problem, data)
+                globals.experiment_data['naked-triples-removed'] += nr_triples_removed
+                globals.experiment_data['nr-naked-triples'] += nr_triples
+
+                #problem, data, nr_x_wings, nr_x_removed, removed = x_wing(problem, data)
+                #globals.experiment_data['x-wings'] += nr_x_wings
+                #globals.experiment_data['x-removed'] += nr_x_removed
+
+        # see if truth values are changed to determine whether we might have further simplification
         if data['true'] != old_data['true'] or data['false'] != old_data['false']:
             simplifiable = True
+
+        # show sudoku after having inserted the values that were known before
+        if not globals.experiment_data["shown"]:
+            globals.experiment_data["shown"] = True
+
+            # show sudoku
+            print()
+            print("The sudoku to solve is: ")
+            print()
+            sudoku = np.zeros((9, 9), dtype=np.int64)
+            for literal in data['true']:
+                sudoku[int(str(literal)[0]) - 1, int(str(literal)[1]) - 1] = int(str(literal)[2])
+
+            show(sudoku)
+            print()
 
 
     # keep track of amount of pure literals and unit clauses
@@ -528,6 +580,33 @@ def simplify_clauses(problem, data, variables):
     globals.experiment_data['units'].append(nr_unit_clauses)
 
     return problem, data
+
+
+def show(sudoku):
+    """
+    This function shows the user what the sudoku is currently looking like
+    :param sudoku: all known values
+    :return: -
+    """
+    for i, line in enumerate(sudoku):
+        for j, char in enumerate(line):
+            if j % 3 == 0 and j != 0:
+                print('  ', end="")
+                if char == 0:
+                    print('_', end=" ")
+                else:
+                    print(char, end=" ")
+            else:
+                if char == 0:
+                    print('_', end=" ")
+                else:
+                    print(char, end=" ")
+
+        if (i + 1) % 3 == 0 and i != 0:
+            print('\n')
+
+        else:
+            print('')
 
 if __name__ == '__main__':
     main()

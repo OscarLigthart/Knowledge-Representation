@@ -1,5 +1,4 @@
 import itertools
-from collections import defaultdict
 
 class QRModel:
     def __init__(self, quantities, derivatives, proportionality, influence, value_correspondences):
@@ -100,9 +99,11 @@ class QRModel:
 
     def transition_states(self, curr_state):
         """
-        Determine all possible changes that can occur from the current state
+        Determine which states a certain state can transition to based on the derivatives
         :return:
         """
+
+        transition_states = []
 
         # for a transition to be possible we need: same values, changed values based on derivative
         # check all derivatives and find next quantity for these derivatives
@@ -112,152 +113,131 @@ class QRModel:
         # First get changes in magnitude on the account of the derivative #
         ###################################################################
 
-        subs = defaultdict(list)
+        quan_trans = {}
         for quantity, values in curr_state.items():
-
-            subs[quantity].append(values)
-
             mag = values['magnitude']
             der = values['derivative']
 
-            # check if the current derivative is 0 and change it
-            if der == '0':
-                # change it in both directions
-                subs[quantity].append({'magnitude': mag, 'derivative': '+'})
+            # get the index of the current magnitude
+            ind = self.quantities[quantity].index(mag)
 
-                subs[quantity].append({'magnitude': mag, 'derivative': '-'})
+            # magnitude has to change according to the derivative
+            # if derivative is 0, magnitude will not change
 
-            # if there already exists a derivative, change the magnitude in its direction
-            # if magnitude reaches landmark, set derivative to 0
+            # reduce the magnitude by 1 if the derivative is negative
+            if der == '-':
+                new_mag = self.quantities[quantity][ind - 1]
+
+            # increase the magnitude by 1 if the derivative is positive
+            elif der == '+':
+                if quantity == 'I':
+                    new_mag = self.quantities[quantity][min(1, ind + 1)]
+                else:
+                    new_mag = self.quantities[quantity][ind + 1]
+
+            # if the derivative is 0, keep the old magnitude
             else:
-                # get the index of the current magnitude
-                ind = self.quantities[quantity].index(mag)
+                new_mag = mag
 
-                # change it according to positive derivative
-                if der == '+':
-                    if quantity == 'I':
-                        new_mag = self.quantities[quantity][min(1, ind + 1)]
-                    else:
-                        new_mag = self.quantities[quantity][ind + 1]
-                elif der == '-':
-                    new_mag = self.quantities[quantity][ind - 1]
+            # save the new possible magnitude for all quantities
+            quan_trans[quantity] = new_mag
 
-                # create all possible changes in magnitude with all new derivatives
-                for derivative in self.derivatives:
-                    subs[quantity].append({'magnitude': mag, 'derivative': derivative})
+        print(quan_trans)
+        # works!
+        #########################
+        # Get transition states #
+        #########################
 
-        print(subs)
-        print(len(subs))
+        # loop through all filtered states to check for possible transitions
+        for state in self.filtered_states:
 
-        transition_states = []
+            # set transition to false until proven otherwise
+            valid = False
 
-        for perm in itertools.product(*subs.values()):
+            check = [False for x in range(len(state))]
+            # derivative has to remain the same, except when new magnitude is a landmark
+            for i, (quantity, values) in enumerate(state.items()):
 
-            # Create a new state object
-            new_state = {}
-            for i, quantity in enumerate(self.quantities):
-                new_state[quantity] = perm[i]
 
-            # check if the generated state is among the filtered (possible) states
-            if new_state in self.filtered_states and new_state != curr_state:
-                transition_states.append(new_state)
+                # check if magnitude is the new magnitude for all states
+                if values['magnitude'] == quan_trans[quantity]:
+                    # check if derivative remains the same (except for when on landmark, then derivative can be 0)
+                    # todo: later on --> combine this with influence and proportionality using matrices
 
-        # now we have all the possible transitions from a single state!
-        print(transition_states[3])
-        print(transition_states)
-        print(len(transition_states))
 
-        transition_states = self.valid_state(transition_states)
-        print(transition_states)
-        print(len(transition_states))
+                    if values['derivative'] == curr_state[quantity]['derivative'] or \
+                            values['derivative'] == '0' and \
+                            (quan_trans[quantity] == '0' or quan_trans[quantity] == 'max'):
+                        check[i] = True
+
+                    # has to be true for all values
+                    # check if all derivatives are same
+                    #
+                    # if values['derivative'] == curr_state[quantity]['derivative']:
+                    #     check[i] = True
+
+                # if all derivatives are the same,
+                if all(check):
+                    # todo leave trace that state transition is due to derivative
+                    valid = True
+
+            # derivative of the inflow can change only when every other value remains the same
+            if state['V'] == curr_state['V'] and state['O'] == curr_state['O'] and \
+                    state['I']['magnitude'] == curr_state['I']['magnitude']:
+                # derivative can only change by one in either direction
+
+                # find the index of current derivative of inflow
+                ind = self.derivatives.index(curr_state['I']['derivative'])
+
+                # find possible derivative transitions
+                ders = self.derivatives[max(0, ind-1): min(3, ind+2)]
+
+                if len(ders) == 1:
+                    ders = [ders]
+
+                # for all of these derivatives, add the states
+                if state['I']['derivative'] in ders:
+                    valid = True
+
+            if valid and state != curr_state:
+                transition_states.append(state)
+                # todo leave trace that state transition is due to exogenous activity
+
+        # seems to work!
+
+        # find transition states that work according to current state?
+        # or take the next states and apply the influences and proportionality
+
+        # if something changes, check it again?
+        for state in transition_states:
+
+            self.find_influence(curr_state, state)
+
+            self.find_proportionality(curr_state, state)
+
+
+
+
+        # add the effects of proportionality and influence
+
+        # create the matrix of effects on derivatives
+
+        # take all states that are found in this matrix
 
         return transition_states
 
-    def valid_state(self, states):
-        """
-        This function checks whether a given state is valid according to influence, proportionality and...
-        :param state: state to consider
-        :return:
-        """
-        # check influence and proportion ratio
-        # see if that is valid --> volume derivative can not be + if there is no inflow
-        valid_states = []
-
-        check = []
-        for i, state in enumerate(states):
-            # a state needs to be valid according to proportionality and influence
-            # keep track of the influences on the derivatives for every quantity
-
-            test_state = {'I': {'magnitude': '+', 'derivative': '+'}, 'O': {'magnitude': '+', 'derivative': '-'},
-            'V': {'magnitude': '+', 'derivative': '-'}}
-
-
-            # todo it now works for for everything except ambiguous states
-
-            valid = self.find_proportionality(test_state)
-            check.append(valid)
-            print(valid)
-
-            valid = self.find_influence(test_state)
-            check.append(valid)
-            print(valid)
-
-            if all(check):
-                valid_states.append(test_state)
-
-        print(valid_states)
-
-        # --> can both effect the derivatives of states so create the matrix
-
-        # todo: check for ambiguity --> if there exists a positive and negative influence/prop effect it can be 0
-
-        return valid_states
-
-    def find_proportionality(self, state):
-        """
-        This function checks whether a state is valid according to the proportional relation between quantities
-        :param state:
-        :return:
-        """
+    def find_proportionality(self, curr_state, next_state):
 
         # find where proportionalities occur
         props = self.proportionality
 
-        # for every proportional relation, check if the state follows the rule
+        # for every proportional relation, find states that follow these rules
         for prop in props:
-            quantity1 = prop[0]
-            relation = prop[1]
-            quantity2 = prop[2]
-
-            # when something is proportional, the derivatives need to be the same
-            if relation == 'P-':
-                # the derivatives have to be opposite to each other in this case
-                # find the index of the derivative and
-                ind = self.derivatives.index(state[quantity1]['derivative'])
-
-                # take the opposite derivative --> if ind == 2 it has to be 0 and vice versa
-                opp_der = self.derivatives[abs(ind-2)]
-
-                if state[quantity2]['derivative'] == opp_der:
-                    return True
-                else:
-                    return False
-
-            elif relation == 'P+':
-                if state[quantity1]['derivative'] == state[quantity2]['derivative']:
-                    return True
-                else:
-                    return False
-
+            pass
 
         return None
 
-    def find_influence(self, state):
-        """
-        This function checks whether a state is valid according to the influence relation between quantities
-        :param state:
-        :return:
-        """
+    def find_influence(self, curr_state, next_state):
 
         influences = self.influence
 
@@ -266,28 +246,29 @@ class QRModel:
             relation = inf[1]
             quantity2 = inf[2]
 
-            # check for positive influence
-            if relation == 'I+':
-                # check if there is some magnitude of the quantity in a state
-                # if there is, the derivative of the other quantity should be positive
-                if state[quantity1]['magnitude'] != '0' and state[quantity2]['derivative'] == '+':
-                    return True
+            if curr_state[quantity1] != '0':
+                if relation == 'I+':
+                    # take all next states that are equal apart from this bit?
+                    pass
+                elif relation == 'I-':
+                    pass
 
-                else:
-                    return False
 
-            # check for negative influence
-            elif relation == 'I-':
-
-                # check if there is some magnitude of the quantity in a state
-                # if there is, the derivative of the other quantity should be negative
-                if state[quantity1]['magnitude'] != '0' and state[quantity2]['derivative'] == '-':
-                    return True
-
-                else:
-                    return False
+            # if quantity 1 is positive, the derivative of quantity 2 has to be positive as well
 
         return None
+
+    def valid_state(self):
+        """
+        Check whether state is valid based on proportionality and influence rules and filter those that are not from
+        the transition tree
+        :return:
+        """
+
+        return None
+
+
+
 
 
 # use the dependencies to find following states
@@ -359,8 +340,16 @@ def main():
     #test_state = {'I': {'magnitude': }}
 
     transitions = model.transition_states(filtered_states[0])
+    print(transitions)
+    print(len(transitions))
 
+    trans2 = model.transition_states(transitions[0])
 
+    print(trans2)
+
+    trans3 = model.transition_states(trans2[1])
+
+    print(trans3)
 
 
 main()

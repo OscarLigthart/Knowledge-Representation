@@ -98,7 +98,7 @@ class QRModel:
         return filtered_states
 
 
-    def transition_states(self, curr_state, exogenous =True):
+    def transition_states(self, curr_state):
         """
         Determine all possible changes that can occur from the current state
         :return:
@@ -122,14 +122,10 @@ class QRModel:
 
             # check if the current derivative is 0 and change it
             if der == '0':
-                # change it in both directions, except for inflow?
-                if quantity == "I":
-                    pass
-                else:
-                    subs[quantity].append({'magnitude': mag, 'derivative': '+'})
+                # change it in both directions
+                subs[quantity].append({'magnitude': mag, 'derivative': '+'})
 
-                    subs[quantity].append({'magnitude': mag, 'derivative': '-'})
-
+                subs[quantity].append({'magnitude': mag, 'derivative': '-'})
 
             # if there already exists a derivative, change the magnitude in its direction
             # if magnitude reaches landmark, set derivative to 0
@@ -147,18 +143,11 @@ class QRModel:
                     new_mag = self.quantities[quantity][ind - 1]
 
                 # create all possible changes in magnitude with all new derivatives
-                # inflow can be changed at any state since it is exogenous, but remains the same when other
-                # values change
-                if quantity == 'I' and new_mag != mag:
-                    subs[quantity].append({'magnitude': new_mag, 'derivative': der})
-                elif quantity == 'I' and new_mag != '0':
-                    pass
-                else:
-                    for derivative in self.derivatives:
-                        subs[quantity].append({'magnitude': new_mag, 'derivative': derivative})
+                for derivative in self.derivatives:
+                    subs[quantity].append({'magnitude': new_mag, 'derivative': derivative})
 
-        print(curr_state)
         print(subs)
+        print(len(subs))
 
         transition_states = []
 
@@ -173,45 +162,13 @@ class QRModel:
             if new_state in self.filtered_states and new_state != curr_state:
                 transition_states.append(new_state)
 
-        ###############################
-        # exogenous state transitions #
-        ###############################
-
-        subs = defaultdict(list)
-        for quantity, values in curr_state.items():
-            mag = values['magnitude']
-            der = values['derivative']
-            # inflow is exogenous, so can be changed at will
-            if quantity == "I":
-                # change the derivative of quantity
-                if der == '+':
-                    subs[quantity].append({'magnitude': mag, 'derivative': '0'})
-                elif der == '-':
-                    subs[quantity].append({'magnitude': mag, 'derivative': '0'})
-                else:
-                    subs[quantity].append({'magnitude': mag, 'derivative': '-'})
-                    subs[quantity].append({'magnitude': mag, 'derivative': '+'})
-
-            # keep original values for other quantities, except when on landmark
-            else:
-                subs[quantity].append(values)
-
-
-        # add the exogenous transitions to the set of possible transitions
-        if exogenous:
-            for perm in itertools.product(*subs.values()):
-
-                # Create a new state object
-                new_state = {}
-                for i, quantity in enumerate(self.quantities):
-                    new_state[quantity] = perm[i]
-
-                # check if the generated state is among the filtered (possible) states
-                if new_state in self.filtered_states and new_state != curr_state and new_state not in transition_states:
-                    transition_states.append(new_state)
-
-
         # now we have all the possible transitions from a single state!
+
+        print('current state:')
+        print(curr_state)
+        print('possible transitions:')
+        print(transition_states)
+        print(len(transition_states))
         transition_states = self.valid_state(transition_states, curr_state)
 
         return transition_states
@@ -238,9 +195,7 @@ class QRModel:
             #              'V': {'magnitude': '+', 'derivative': '+'}}
 
 
-            #############################
-            # Proportionality/Influence #
-            #############################
+            # todo it now works for for everything except ambiguous states
 
             check = self.find_proportionality(state)
 
@@ -295,8 +250,9 @@ class QRModel:
                             # now check if difference between curr state derivative is just one compared to next state
                             # get both indices and subtract, should be no more than 1
                             ind1 = self.derivatives.index(state[quantity]['derivative'])
-
+                            print(ind1)
                             ind2 = self.derivatives.index(curr_state[quantity]['derivative'])
+                            print(ind2)
 
                             if abs(ind1 - ind2) < 2:
                                 valid[j] = True
@@ -355,8 +311,7 @@ class QRModel:
                     check.append(False)
 
             elif relation == 'P+':
-                if state[quantity1]['derivative'] == state[quantity2]['derivative'] and \
-                        state[quantity1]['magnitude'] == state[quantity2]['magnitude']:
+                if state[quantity1]['derivative'] == state[quantity2]['derivative']:
                     check.append(True)
                 else:
                     check.append(False)
@@ -491,30 +446,7 @@ def main():
     trans2 = model.transition_states(transitions[0])
     print(trans2)
 
-    trans3 = model.transition_states(trans2[0])
-    print(len(trans3))
-    print()
-    for tr in trans3:
-        print(tr)
-        print()
-
-    trans3 = model.transition_states(trans3[2])
-    print(len(trans3))
-    print()
-    for tr in trans3:
-        print(tr)
-        print()
-
-    trans3 = model.transition_states(trans3[0])
-    print(len(trans3))
-    print()
-    for tr in trans3:
-        print(tr)
-        print()
-
-    # todo: this gives all possiblities, should not give all inflow derivatives
-
-    trans3 = model.transition_states(trans3[-1], True)
+    trans3 = model.transition_states(trans2[-1])
     print(len(trans3))
     print()
     for tr in trans3:

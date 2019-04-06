@@ -1,5 +1,6 @@
 import itertools
 from collections import defaultdict
+from graphviz import Digraph
 
 class QRModel:
     def __init__(self, quantities, derivatives, proportionality, influence, value_correspondences, leave_trace):
@@ -658,13 +659,16 @@ def main():
     print(len(valid_states))
 
     nodename = {}
-    nodevalue = {}
+
     transitions = defaultdict(list)
-    letter = 65
+
+    node_ID = {}
+
+    letter = 65 #ascii
 
     for state in valid_states:
 
-        nodevalue[str(state)] = chr(letter)
+        node_ID[str(state)] = chr(letter)
         letter += 1
 
         # create node 'name'
@@ -688,11 +692,32 @@ def main():
             print('Next state:')
             print(next_state)
 
+        node_ID[str(state)] = chr(letter)
+        letter += 1 
+
     # get all transitions from valid states
-    #print(transitions)
+    #state graph
 
-    print(nodevalue[str(state)])
+    dot = Digraph('unix', filename='stategraph.gv')
 
+    dot.node_attr.update(color='lightblue2', style='filled', shape='box', fontsize='20', fontname='Helvetica', height='0', width='0')
+    dot.edge_attr.update(arrowhead='vee', arrowsize='0.5', arrowtail="both")
+
+    edges_graph = []
+
+    for key, name in nodename.items():
+
+        dot.node(node_ID[key], name)
+        
+        for trans in transitions[key]:
+            edges_graph.append(node_ID[key] + node_ID[trans])
+
+
+    edges_graph = list(set(edges_graph))
+
+    dot.edges(edges_graph)
+
+    dot.view()
 
 
 main()

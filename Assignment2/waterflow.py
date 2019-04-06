@@ -150,7 +150,10 @@ class QRModel:
                 # inflow can be changed at any state since it is exogenous, but remains the same when other
                 # values change
                 if quantity == 'I' and new_mag != mag:
-                    subs[quantity].append({'magnitude': new_mag, 'derivative': der})
+                    if der == '-':
+                        subs[quantity].append({'magnitude': new_mag, 'derivative': '0'})
+                    else:
+                        subs[quantity].append({'magnitude': new_mag, 'derivative': der})
                 elif quantity == 'I' and new_mag != '0':
                     pass
                 else:
@@ -498,28 +501,28 @@ def main():
         print(tr)
         print()
 
-    trans3 = model.transition_states(trans3[2])
+    trans3 = model.transition_states(trans3[-1])
     print(len(trans3))
     print()
     for tr in trans3:
         print(tr)
         print()
 
-    trans3 = model.transition_states(trans3[0])
+    trans3 = model.transition_states(trans3[-2])
     print(len(trans3))
     print()
     for tr in trans3:
         print(tr)
         print()
 
-    # todo: this gives all possiblities, should not give all inflow derivatives
-
-    trans3 = model.transition_states(trans3[-1], True)
-    print(len(trans3))
-    print()
-    for tr in trans3:
-        print(tr)
-        print()
+    # todo: this gives all possiblities, should not give all inflow derivatives --> DONE?
+    #
+    # trans3 = model.transition_states(trans3[-1], True)
+    # print(len(trans3))
+    # print()
+    # for tr in trans3:
+    #     print(tr)
+    #     print()
 
 
 

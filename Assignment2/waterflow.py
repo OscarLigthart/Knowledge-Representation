@@ -2,23 +2,31 @@ import itertools
 from collections import defaultdict
 
 class QRModel:
-    def __init__(self, quantities, derivatives, proportionality, influence, value_correspondences):
+    def __init__(self, quantities, derivatives, proportionality, influence, value_correspondences, leave_trace):
         self.quantities = quantities
         self.derivatives = derivatives
         self.vc = value_correspondences
         self.proportionality = proportionality
         self.influence = influence
-        self.landmarks = {
-            q: [v[i] for i in range(len(v)) if i % 2 == 0]
-            for q, v in quantities.items()
-        }
+        self.leave_trace = leave_trace
+        self.trace = {}
+        if leave_trace:
+            self.gen_valid_states()
 
     def gen_states(self):
 
         """Generate all possible states"""
 
-        all_permutations = [self.quantities['I'], self.quantities['V'], self.quantities['O'],
-                            self.derivatives, self.derivatives, self.derivatives]
+        #all_permutations = [self.quantities['I'], self.quantities['V'], self.quantities['O'],
+        #                    self.derivatives, self.derivatives, self.derivatives]
+
+        all_permutations = []
+
+        for key, value in self.quantities.items():
+            all_permutations.append(value)
+
+        for i in range(len(self.quantities)):
+            all_permutations.append(self.derivatives)
 
         pre_states = list(itertools.product(*all_permutations))
 
@@ -29,11 +37,29 @@ class QRModel:
             for i, key in enumerate(self.quantities.keys()):
                 new_state[key] = {}
                 new_state[key]['magnitude'] = state[i]
-                new_state[key]['derivative'] = state[3 + i]
+                new_state[key]['derivative'] = state[len(self.quantities) + i]
             states.append(new_state)
 
         self.all_states = states
         return states
+
+    def gen_valid_states(self):
+
+        # generate all states
+        self.gen_states()
+
+        # filter states
+        self.vc_filter()
+
+        trace_states = self.valid_state(self.filtered_states)
+
+        # create dictionary for all possible state combinations to keep track of trace
+        if self.leave_trace:
+            for state1 in trace_states:
+                for state2 in trace_states:
+                    if state1 != state2:
+                        self.trace[str(state1) + str(state2)] = {}
+
 
     def vc_filter(self):
         """
@@ -160,8 +186,24 @@ class QRModel:
                     for derivative in self.derivatives:
                         subs[quantity].append({'magnitude': new_mag, 'derivative': derivative})
 
+                    # also add the old value with changed magnitude for ambiguity?
+                    # change the derivative in which direction? (change it by one)
+                    # -->
+                    if der == "-":
+                        subs[quantity].append({'magnitude': mag, 'derivative': "-"})
+                        subs[quantity].append({'magnitude': mag, 'derivative': "0"})
+                    elif der == "+":
+                        subs[quantity].append({'magnitude': mag, 'derivative': "+"})
+                        subs[quantity].append({'magnitude': mag, 'derivative': "0"})
+                    else:
+                        for derivative in self.derivatives:
+                            subs[quantity].append({'magnitude': mag, 'derivative': derivative})
+
+        print()
+        print('CURRENT STATE:')
+        print()
         print(curr_state)
-        print(subs)
+        print()
 
         transition_states = []
 
@@ -176,6 +218,50 @@ class QRModel:
             if new_state in self.filtered_states and new_state != curr_state:
                 transition_states.append(new_state)
 
+                ############################################
+                # Leave a trace for changing the magnitude #
+                ############################################
+                if self.leave_trace:
+                    if self.valid_state([new_state]):
+                        # trace:
+                        # extract the magnitudes to find why it changes
+                        # self.trace[str(new_state)] = {}
+                        # self.trace[str(new_state)][
+                        #     'inter'] =
+
+                        # find the changes in states and blame the derivative for their changes
+                        # magnitude becomes: , due to derivative of:
+
+
+                        sample_text = '\nThis state is a result of the following changes:\n'
+                        text = ''
+
+                        val = False
+                        for quan in self.quantities:
+                            if new_state[quan]['magnitude'] != curr_state[quan]['magnitude']:
+                                text += '{} gets a magnitude of {}, due to the previous magnitude of {} having'\
+                                        ' a derivative of {}\n'\
+                                    .format(quan, new_state[quan]['magnitude'],
+                                            curr_state[quan]['magnitude'], curr_state[quan]['derivative'])
+                                val = True
+
+                        if val:
+                            self.trace[str(curr_state) + str(new_state)]['inter'] = sample_text + text
+
+                        else:
+                            if curr_state['I']['derivative'] == '+':
+                                # here the trace that inflow is getting stronger
+                                self.trace[str(curr_state) + str(new_state)]['inter'] = \
+                                    'The inflow is getting stronger compared to the outflow '\
+                                        'so the derivative of V changes from {} to {}'\
+                                        .format(curr_state['V']['derivative'], new_state['V']['derivative'])
+                            else:
+                                # here the trace that inflow is getting weaker
+                                self.trace[str(curr_state) + str(new_state)]['inter'] = \
+                                    'The inflow is getting weaker compared to the outflow ' \
+                                    'so the derivative of V changes from {} to {}' \
+                                        .format(curr_state['V']['derivative'], new_state['V']['derivative'])
+
         ###############################
         # exogenous state transitions #
         ###############################
@@ -184,24 +270,33 @@ class QRModel:
         for quantity, values in curr_state.items():
             mag = values['magnitude']
             der = values['derivative']
-            # inflow is exogenous, so can be changed at will
+            # inflow is exogenous, so can be changed at will, however: follow magnitude changes
             if quantity == "I":
+
+                # change magnitude
+                # get the index of the current magnitude
+                ind = self.quantities[quantity].index(mag)
+
                 # change the derivative of quantity
                 if der == '+':
-                    subs[quantity].append({'magnitude': mag, 'derivative': '0'})
+                    new_mag = self.quantities[quantity][min(1, ind + 1)]
+                    subs[quantity].append({'magnitude': new_mag, 'derivative': '0'})
                 elif der == '-':
-                    subs[quantity].append({'magnitude': mag, 'derivative': '0'})
+                    new_mag = self.quantities[quantity][ind - 1]
+                    subs[quantity].append({'magnitude': new_mag, 'derivative': '0'})
                 else:
                     subs[quantity].append({'magnitude': mag, 'derivative': '-'})
                     subs[quantity].append({'magnitude': mag, 'derivative': '+'})
 
             # keep original values for other quantities, except when on landmark
+            # instead: follow derivative changes
             else:
                 subs[quantity].append(values)
 
 
         # add the exogenous transitions to the set of possible transitions
         if exogenous:
+
             for perm in itertools.product(*subs.values()):
 
                 # Create a new state object
@@ -211,15 +306,26 @@ class QRModel:
 
                 # check if the generated state is among the filtered (possible) states
                 if new_state in self.filtered_states and new_state != curr_state and new_state not in transition_states:
+
+                    # check if valid over here
                     transition_states.append(new_state)
 
+                    #######################################
+                    # Leave a trace for exogenous actions #
+                    #######################################
+                    if self.leave_trace:
+                        if self.valid_state([new_state]):
+                            # trace:
+                            self.trace[str(curr_state)+str(new_state)]['inter'] = \
+                                'This state is a result of an exogenous action, '\
+                                    'where a person manually operates the inflow.'
 
         # now we have all the possible transitions from a single state!
         transition_states = self.valid_state(transition_states, curr_state)
 
         return transition_states
 
-    def valid_state(self, states, curr_state):
+    def valid_state(self, states, curr_state=None):
         """
         This function checks whether a given state is valid according to influence, proportionality and...
         :param state: state to consider
@@ -230,16 +336,8 @@ class QRModel:
         valid_states = []
 
         for i, state in enumerate(states):
-
             # a state needs to be valid according to proportionality and influence
             # keep track of the influences on the derivatives for every quantity
-
-            # test_state = {'I': {'magnitude': '+', 'derivative': '+'}, 'O': {'magnitude': '0', 'derivative': '+'},
-            # 'V': {'magnitude': '0', 'derivative': '+'}}
-
-            #test_state = {'I': {'magnitude': '0', 'derivative': '0'}, 'O': {'magnitude': '0', 'derivative': '+'},
-            #              'V': {'magnitude': '+', 'derivative': '+'}}
-
 
             #############################
             # Proportionality/Influence #
@@ -256,73 +354,65 @@ class QRModel:
 
                 # check for all zeros
                 if all([x == 0 for x in derivs['V']]):
-                    #print('Derivative should be 0 as there is no effect')
                     # check whether derivative actually is 0
                     if state['V']['derivative'] == '0':
                         valid_states.append(state)
 
-                # sum and check if positive or negative
+                        # trace
+                        if curr_state != None and self.leave_trace:
+
+                            # print('Derivative should be 0 as there is no effect')
+                            self.trace[str(curr_state) + str(state)]['intra'] = \
+                                'Derivative of V should be 0, as there is no influence'
+
+
+                        # sum and check if positive or negative
                 elif sum(derivs['V']) > 0:
-                    #print('Derivative should be positive')
+
                     # check whether the derivative actually is positive
                     if state['V']['derivative'] == '+':
                         valid_states.append(state)
 
+                        # trace
+                        if curr_state != None and self.leave_trace:
+                            # print('Derivative should be 0 as there is no effect')
+                            self.trace[str(curr_state) + str(state)]['intra'] = \
+                                'Derivative of V should be +, as there is only positive influence'
+
                 elif sum(derivs['V']) < 0:
-                    #print('Derivative should be negative')
                     # check whether the derivative actually is negative
                     if state['V']['derivative'] == '-':
                         valid_states.append(state)
 
+                        # trace
+                        if curr_state != None and self.leave_trace:
+                            # print('Derivative should be 0 as there is no effect')
+                            self.trace[str(curr_state) + str(state)]['intra'] = \
+                                'Derivative of V should be -, as there is only negative influence'
+
                 # sum and check if 0
                 elif sum(derivs['V']) == 0:
-                    #print('Ambiguous')
                     # return state with all derivatives
                     valid_states.append(state)
 
-                #####################
-                # Exogenous actions #
-                #####################
+                    # trace
+                    if curr_state != None and self.leave_trace:
 
-                # allow for changes in inflow when? not always --> proportionality should be true
-                # every value should be the same as the old state, except for the change in derivative for the inflow
-                # that could also validate a state
+                        #trace
+                        if state['V']['derivative'] == '-':
+                            self.trace[str(curr_state) + str(state)]['intra'] = \
+                                'In this case the outflow is stronger than the inflow, so the derivative of V is -'\
+                                ' (ambiguous)'
 
-                # check if all but the inflow is the same as the old state --> change the inflow in a
-                # neighbouring direction
+                        elif state['V']['derivative'] == '+':
+                            self.trace[str(curr_state) + str(state)]['intra'] = \
+                                'In this case the inflow is stronger than the outflow, so the derivative of V is +'\
+                                ' (ambigous)'
 
-                valid = [False for x in range(len(self.quantities))]
-                for j, quantity in enumerate(self.quantities):
-                    if quantity == 'I':
-                        if state[quantity]['magnitude'] == curr_state[quantity]['magnitude']:
-                            # now check if difference between curr state derivative is just one compared to next state
-                            # get both indices and subtract, should be no more than 1
-                            ind1 = self.derivatives.index(state[quantity]['derivative'])
-
-                            ind2 = self.derivatives.index(curr_state[quantity]['derivative'])
-
-                            if abs(ind1 - ind2) < 2:
-                                valid[j] = True
-
-                    else:
-                        if state[quantity] == curr_state[quantity]:
-                            valid[j] = True
-
-                if all(valid) and state not in valid_states:
-                    valid_states.append(state)
-
-        print('states')
-        print(valid_states)
-
-        # --> can both effect the derivatives of states so create the matrix
-
-        # todo: check for ambiguity --> if there exists a positive and negative influence/prop effect, derivative can
-        # todo: be -, 0, + all together
-
-
-
-        # todo: transition direction --> Outflow can get stronger when inflow is decreasing and Inflow can get stronger
-        # todo: when it is increasing
+                        else:
+                            self.trace[str(curr_state) + str(state)]['intra'] = \
+                                'In this case the inflow is as strong as the outflow, so the derivative of V is 0' \
+                                ' (ambiguous)'
 
         return valid_states
 
@@ -482,49 +572,137 @@ def main():
     vc2 = ["V", "0", "O", "0"]
     value_correspondence = [vc1, vc2]
 
-    model = QRModel(quantities, derivatives, props, influences, value_correspondence)
+    extension = True
+    if extension:
+        quantities.update({
+            "H": ["0", "+", "max"],
+            "P": ["0", "+", "max"]
+        })
+
+        # Volume   --(P+)--> Height
+        # Height   --(P+)--> Pressure
+        # Pressure --(P+)--> Outflow
+        p1 = ["V", "P+", "H"]
+        p2 = ["H", "P+", "P"]
+        p3 = ["P", "P+", "O"]
+
+        props = [p1, p2, p3]
+
+        vc1 = ["V", "max", "H", "max"]
+        vc2 = ["V", "0", "H", "0"]
+        vc3 = ["H", "max", "P", "max"]
+        vc4 = ["H", "0", "P", "0"]
+        vc5 = ["P", "max", "O", "max"]
+        vc6 = ["P", "0", "O", "0"]
+
+        value_correspondence = [vc1, vc2, vc3, vc4, vc5, vc6]
+
+    """
+    model = QRModel(quantities, derivatives, props, influences, value_correspondence, True)
     states = model.gen_states()
     filtered_states = model.vc_filter()
 
-    #test_state = {'I': {'magnitude': }}
-
     transitions = model.transition_states(filtered_states[0])
+
+    print('---------------------------------')
+    print('Possible state to transition to:')
+    print('---------------------------------')
+
+    print(transitions)
+
     #print(transitions)
 
-    trans2 = model.transition_states(transitions[0])
-    print(trans2)
+    trans3 = model.transition_states(transitions[0])
 
-    trans3 = model.transition_states(trans2[0])
-    print(len(trans3))
-    print()
+    print('---------------------------------')
+    print('Possible state to transition to:')
+    print('---------------------------------')
+
     for tr in trans3:
+
+        print('INTER STATE trace:')
+        print(model.trace[str(transitions[0]) + str(tr)]['inter'])
+
+        print()
+        print('INTRA STATE trace:')
+        print(model.trace[str(transitions[0]) + str(tr)]['intra'])
+        print()
         print(tr)
         print()
 
-    trans3 = model.transition_states(trans3[-1])
-    print(len(trans3))
-    print()
+    bla = trans3[0]
+    trans3 = model.transition_states(trans3[0])
+
+    print('---------------------------------')
+    print('Possible state to transition to:')
+    print('---------------------------------')
+
     for tr in trans3:
+        print('INTER STATE trace:')
+        print(model.trace[str(bla) + str(tr)]['inter'])
+
+        print()
+        print('INTRA STATE trace:')
+        print(model.trace[str(bla) + str(tr)]['intra'])
+        print()
         print(tr)
         print()
 
-    trans3 = model.transition_states(trans3[-2])
-    print(len(trans3))
-    print()
+    bla = trans3[0]
+    trans3 = model.transition_states(trans3[0])
+
+    print('---------------------------------')
+    print('Possible state to transition to:')
+    print('---------------------------------')
+
     for tr in trans3:
+        print()
         print(tr)
         print()
+        print('INTER STATE trace:')
+        print(model.trace[str(bla) + str(tr)]['inter'])
 
-    # todo: this gives all possiblities, should not give all inflow derivatives --> DONE?
-    #
-    # trans3 = model.transition_states(trans3[-1], True)
-    # print(len(trans3))
-    # print()
-    # for tr in trans3:
-    #     print(tr)
-    #     print()
+        print()
+        print('INTRA STATE trace:')
+        print(model.trace[str(bla) + str(tr)]['intra'])
+        print()
+        print(tr)
+        print()
+        
+    """
+
+    # create model
+    model = QRModel(quantities, derivatives, props, influences, value_correspondence, True)
+
+    # generate and filter all states
+    states = model.gen_states()
+    filtered_states = model.vc_filter()
+
+    # get all valid states to create nodes
+    valid_states = model.valid_state(filtered_states)
+
+    print(len(valid_states))
+
+    nodename = defaultdict(list)
+    transitions = defaultdict(list)
+    for state in valid_states:
 
 
+        # create node 'name'
+        s = "Q | M   D\n--+------\n"
+        for quan, values in state.items():
+            s += "{} | {:4s}{}\n".format(quan, values['magnitude'], values['derivative'])
+        nodename[str(state)] = s
+
+        # get all transitions
+        next_states = model.transition_states(state)
+
+        # store all transitions
+        for next_state in next_states:
+            transitions[str(state)].append(str(next_state))
+
+    # get all transitions from valid states
+    print(transitions)
 
 
 main()

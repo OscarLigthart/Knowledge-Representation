@@ -199,11 +199,11 @@ class QRModel:
                         for derivative in self.derivatives:
                             subs[quantity].append({'magnitude': mag, 'derivative': derivative})
 
-        print()
-        print('CURRENT STATE:')
-        print()
-        print(curr_state)
-        print()
+        # print()
+        # print('CURRENT STATE:')
+        # print()
+        # print(curr_state)
+        # print()
 
         transition_states = []
 
@@ -325,7 +325,7 @@ class QRModel:
 
         return transition_states
 
-    def valid_state(self, states, curr_state=None):
+    def valid_state(self, states, curr_state = None):
         """
         This function checks whether a given state is valid according to influence, proportionality and...
         :param state: state to consider
@@ -349,7 +349,6 @@ class QRModel:
 
             # check if all proportionalities are satisfied, then use the calculus rules to determine whether ambiguity
             # occurs
-            # todo: softcode
             if all(check):
 
                 # check for all zeros
@@ -510,31 +509,6 @@ class QRModel:
         return derivs
 
 
-# use the dependencies to find following states
-def dependencies(state, all_states):
-
-    # everything should be the same except for the influence, proportionality for a state to be able to transition
-    # into another state
-    transitions = []
-
-        # inflow influence
-    for compare_state in all_states:
-        if state['I']['magnitude'] == '+':
-            if compare_state['V']['derivative'] == '+':
-                transitions.append(compare_state)
-
-        # outflow influence
-        if state['O']['magnitude'] == '+':
-            if compare_state['V']['derivative'] == '+':
-                transitions.append(compare_state)
-
-    # volume proportionality
-
-
-
-    return None
-
-
 def main():
 
 
@@ -683,10 +657,15 @@ def main():
 
     print(len(valid_states))
 
-    nodename = defaultdict(list)
+    nodename = {}
+    nodevalue = {}
     transitions = defaultdict(list)
+    letter = 65
+
     for state in valid_states:
 
+        nodevalue[str(state)] = chr(letter)
+        letter += 1
 
         # create node 'name'
         s = "Q | M   D\n--+------\n"
@@ -697,12 +676,23 @@ def main():
         # get all transitions
         next_states = model.transition_states(state)
 
+        print('------------------------')
+        print('NEW STATE')
+        print('-------------------------')
         # store all transitions
         for next_state in next_states:
             transitions[str(state)].append(str(next_state))
+            print('Curr state:')
+            print(state)
+            print()
+            print('Next state:')
+            print(next_state)
 
     # get all transitions from valid states
-    print(transitions)
+    #print(transitions)
+
+    print(nodevalue[str(state)])
+
 
 
 main()

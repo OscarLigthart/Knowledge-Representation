@@ -1,0 +1,286 @@
+digraph unix {
+	node [color=lightblue2 fontname=Helvetica fontsize=20 height=0 shape=box style=filled width=0]
+	edge [arrowhead=vee arrowsize=0.5 arrowtail=both]
+	A [label="Q | M   D
+--+------
+I | 0   0
+V | 0   0
+O | 0   0
+H | 0   0
+P | 0   0
+"]
+	B [label="Q | M   D
+--+------
+I | 0   +
+V | 0   0
+O | 0   0
+H | 0   0
+P | 0   0
+"]
+	C [label="Q | M   D
+--+------
+I | 0   0
+V | +   -
+O | +   -
+H | +   -
+P | +   -
+"]
+	D [label="Q | M   D
+--+------
+I | 0   +
+V | +   -
+O | +   -
+H | +   -
+P | +   -
+"]
+	E [label="Q | M   D
+--+------
+I | 0   0
+V | max -
+O | max -
+H | max -
+P | max -
+"]
+	F [label="Q | M   D
+--+------
+I | 0   +
+V | max -
+O | max -
+H | max -
+P | max -
+"]
+	G [label="Q | M   D
+--+------
+I | +   -
+V | 0   +
+O | 0   +
+H | 0   +
+P | 0   +
+"]
+	H [label="Q | M   D
+--+------
+I | +   0
+V | 0   +
+O | 0   +
+H | 0   +
+P | 0   +
+"]
+	I [label="Q | M   D
+--+------
+I | +   +
+V | 0   +
+O | 0   +
+H | 0   +
+P | 0   +
+"]
+	J [label="Q | M   D
+--+------
+I | +   -
+V | +   -
+O | +   -
+H | +   -
+P | +   -
+"]
+	K [label="Q | M   D
+--+------
+I | +   -
+V | +   0
+O | +   0
+H | +   0
+P | +   0
+"]
+	L [label="Q | M   D
+--+------
+I | +   -
+V | +   +
+O | +   +
+H | +   +
+P | +   +
+"]
+	M [label="Q | M   D
+--+------
+I | +   0
+V | +   -
+O | +   -
+H | +   -
+P | +   -
+"]
+	N [label="Q | M   D
+--+------
+I | +   0
+V | +   0
+O | +   0
+H | +   0
+P | +   0
+"]
+	O [label="Q | M   D
+--+------
+I | +   0
+V | +   +
+O | +   +
+H | +   +
+P | +   +
+"]
+	P [label="Q | M   D
+--+------
+I | +   +
+V | +   -
+O | +   -
+H | +   -
+P | +   -
+"]
+	Q [label="Q | M   D
+--+------
+I | +   +
+V | +   0
+O | +   0
+H | +   0
+P | +   0
+"]
+	R [label="Q | M   D
+--+------
+I | +   +
+V | +   +
+O | +   +
+H | +   +
+P | +   +
+"]
+	S [label="Q | M   D
+--+------
+I | +   -
+V | max -
+O | max -
+H | max -
+P | max -
+"]
+	T [label="Q | M   D
+--+------
+I | +   -
+V | max 0
+O | max 0
+H | max 0
+P | max 0
+"]
+	U [label="Q | M   D
+--+------
+I | +   0
+V | max -
+O | max -
+H | max -
+P | max -
+"]
+	V [label="Q | M   D
+--+------
+I | +   0
+V | max 0
+O | max 0
+H | max 0
+P | max 0
+"]
+	W [label="Q | M   D
+--+------
+I | +   +
+V | max -
+O | max -
+H | max -
+P | max -
+"]
+	X [label="Q | M   D
+--+------
+I | +   +
+V | max 0
+O | max 0
+H | max 0
+P | max 0
+"]
+	U -> O
+	D -> Q
+	J -> A
+	G -> C
+	O -> U
+	S -> E
+	L -> S
+	J -> G
+	D -> B
+	O -> V
+	G -> K
+	H -> O
+	U -> W
+	M -> J
+	H -> M
+	D -> P
+	F -> U
+	O -> N
+	V -> U
+	R -> X
+	A -> B
+	L -> K
+	N -> Q
+	I -> Q
+	D -> I
+	T -> S
+	N -> O
+	W -> U
+	V -> T
+	L -> T
+	I -> P
+	P -> I
+	C -> A
+	F -> W
+	V -> X
+	H -> I
+	S -> K
+	K -> L
+	R -> Q
+	N -> M
+	G -> A
+	J -> C
+	Q -> R
+	G -> J
+	K -> J
+	W -> P
+	F -> R
+	U -> S
+	X -> W
+	U -> M
+	G -> L
+	O -> L
+	W -> R
+	S -> T
+	K -> C
+	N -> K
+	I -> R
+	P -> Q
+	U -> N
+	Q -> N
+	S -> L
+	F -> D
+	E -> F
+	U -> V
+	H -> G
+	I -> H
+	S -> J
+	H -> N
+	O -> R
+	E -> C
+	B -> I
+	J -> K
+	S -> C
+	W -> X
+	M -> P
+	F -> X
+	M -> N
+	F -> Q
+	M -> H
+	T -> E
+	F -> P
+	C -> D
+	Q -> P
+	R -> W
+	P -> M
+	X -> V
+	W -> Q
+	D -> M
+	R -> O
+	L -> E
+}

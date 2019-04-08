@@ -1,6 +1,8 @@
 import itertools
 from collections import defaultdict
 from graphviz import Digraph
+import copy
+
 
 class QRModel:
     def __init__(self, quantities, derivatives, proportionality, influence, value_correspondences, leave_trace):
@@ -9,6 +11,7 @@ class QRModel:
         self.vc = value_correspondences
         self.proportionality = proportionality
         self.influence = influence
+        self.landmarks = ['0', 'max']
         self.leave_trace = leave_trace
         self.trace = {}
         if leave_trace:
@@ -100,6 +103,8 @@ class QRModel:
 
         self.filtered_states = filtered_states
 
+        self.valid_states = self.valid_state(filtered_states)
+
         return filtered_states
 
     def landmark_filter(self, states):
@@ -124,24 +129,67 @@ class QRModel:
 
         return filtered_states
 
+    def to_landmark(self, curr_state, next_state):
 
-    def transition_states(self, curr_state, exogenous =True):
+        """This function checks if a transition occurs from an interval to a landmark"""
+
+        for quantity, values in curr_state.items():
+            mag = values['magnitude']
+            der = values['derivative']
+
+            if der != '0' and next_state[quantity]['derivative'] == '0':
+                return True
+
+            if mag not in self.landmarks and mag != next_state[quantity]['magnitude']:
+                return True
+
+        return False
+
+
+    def from_landmark(self, curr_state, next_state, exogenous):
+
+        """This function check if a transition occurs from a landmark to an interval"""
+
+        for quantity, values in curr_state.items():
+            mag = values['magnitude']
+            der = values['derivative']
+
+            if mag in self.landmarks and mag != next_state[quantity]['magnitude']:
+                return True
+
+            if not exogenous and quantity == "I":
+                continue
+
+            if der == '0' and next_state[quantity]['derivative'] != '0':
+                return True
+
+        # for quantity in self.quantities:
+        #     if old_state[quantity][MAGNITUDE] in self.point_values[quantity] \
+        #             and new_state[quantity][MAGNITUDE] != \
+        #             old_state[quantity][MAGNITUDE]:
+        #         return True
+        #
+        #     if skip_exogenous and quantity in self.exogenous_quantities:
+        #         continue
+        #     if old_state[quantity][DERIV] == DerivativeValue.ZERO and \
+        #             new_state[quantity][DERIV] != DerivativeValue.ZERO:
+        #         return True
+
+        return False
+
+    def transition_states(self, curr_state):
         """
         Determine all possible changes that can occur from the current state
         :return:
         """
 
-        # for a transition to be possible we need: same values, changed values based on derivative
-        # check all derivatives and find next quantity for these derivatives
-        # all derivatives need to be satisfied at once for a state to be candidate for a valid transition
-
-        ###################################################################
-        # First get changes in magnitude on the account of the derivative #
-        ###################################################################
+        # start with the derivatives --> create a state where all the magnitudes have changed based on the derivatives
+        # only change the derivative if we are at a landmark
 
         subs = defaultdict(list)
         for quantity, values in curr_state.items():
 
+            # should add the same, except when?
             subs[quantity].append(values)
 
             mag = values['magnitude']
@@ -149,13 +197,9 @@ class QRModel:
 
             # check if the current derivative is 0 and change it
             if der == '0':
-                # change it in both directions, except for inflow?
-                if quantity == "I":
-                    pass
-                else:
-                    subs[quantity].append({'magnitude': mag, 'derivative': '+'})
+                subs[quantity].append({'magnitude': mag, 'derivative': '+'})
 
-                    subs[quantity].append({'magnitude': mag, 'derivative': '-'})
+                subs[quantity].append({'magnitude': mag, 'derivative': '-'})
 
 
             # if there already exists a derivative, change the magnitude in its direction
@@ -173,38 +217,17 @@ class QRModel:
                 elif der == '-':
                     new_mag = self.quantities[quantity][ind - 1]
 
-                # create all possible changes in magnitude with all new derivatives
-                # inflow can be changed at any state since it is exogenous, but remains the same when other
-                # values change
-                if quantity == 'I' and new_mag != mag:
-                    if der == '-':
-                        subs[quantity].append({'magnitude': new_mag, 'derivative': '0'})
-                    else:
-                        subs[quantity].append({'magnitude': new_mag, 'derivative': der})
-                elif quantity == 'I' and new_mag != '0':
-                    pass
+                # check if new mag falls on landmark, if so derivative becomes 0, else stays on same
+                if new_mag in self.landmarks:
+                    # get which one it is
+                    subs[quantity].append({'magnitude': new_mag, 'derivative': '0'})
+                    subs[quantity].append({'magnitude': new_mag, 'derivative': '-'})
+
                 else:
-                    for derivative in self.derivatives:
-                        subs[quantity].append({'magnitude': new_mag, 'derivative': derivative})
+                    subs[quantity].append({'magnitude': new_mag, 'derivative': der})
 
-                    # also add the old value with changed magnitude for ambiguity?
-                    # change the derivative in which direction? (change it by one)
-                    # -->
-                    if der == "-":
-                        subs[quantity].append({'magnitude': mag, 'derivative': "-"})
-                        subs[quantity].append({'magnitude': mag, 'derivative': "0"})
-                    elif der == "+":
-                        subs[quantity].append({'magnitude': mag, 'derivative': "+"})
-                        subs[quantity].append({'magnitude': mag, 'derivative': "0"})
-                    else:
-                        for derivative in self.derivatives:
-                            subs[quantity].append({'magnitude': mag, 'derivative': derivative})
-
-        # print()
-        # print('CURRENT STATE:')
-        # print()
-        # print(curr_state)
-        # print()
+                # change derivative back to 0
+                subs[quantity].append({'magnitude': mag, 'derivative': '0'})
 
         transition_states = []
 
@@ -216,113 +239,97 @@ class QRModel:
                 new_state[quantity] = perm[i]
 
             # check if the generated state is among the filtered (possible) states
-            if new_state in self.filtered_states and new_state != curr_state:
+            if new_state in self.valid_states and new_state != curr_state:
                 transition_states.append(new_state)
 
-                ############################################
-                # Leave a trace for changing the magnitude #
-                ############################################
-                if self.leave_trace:
-                    if self.valid_state([new_state]):
-                        # trace:
-                        # extract the magnitudes to find why it changes
-                        # self.trace[str(new_state)] = {}
-                        # self.trace[str(new_state)][
-                        #     'inter'] =
+        valid_trans = copy.deepcopy(transition_states)
+        # check if transition is valid
+        for state in transition_states:
 
-                        # find the changes in states and blame the derivative for their changes
-                        # magnitude becomes: , due to derivative of:
+            # determine whether points comes from or goes to landmark
+            from_land = self.from_landmark(curr_state, state, True)
+            to_land = self.to_landmark(curr_state, state)
 
+            for quan, values in state.items():
+                mag = values['magnitude']
+                der = values['derivative']
 
-                        sample_text = '\nThis state is a result of the following changes:\n'
-                        text = ''
+                # check whether the magnitude changed
+                mag_change = False
+                if mag != curr_state[quan]['magnitude']:
+                    mag_change = True
 
-                        val = False
-                        for quan in self.quantities:
-                            if new_state[quan]['magnitude'] != curr_state[quan]['magnitude']:
-                                text += '{} gets a magnitude of {}, due to the previous magnitude of {} having'\
-                                        ' a derivative of {}\n'\
-                                    .format(quan, new_state[quan]['magnitude'],
-                                            curr_state[quan]['magnitude'], curr_state[quan]['derivative'])
-                                val = True
+                # check whether the derivative changed
+                der_change = False
+                if der != curr_state[quan]['derivative']:
+                    der_change = True
 
-                        if val:
-                            self.trace[str(curr_state) + str(new_state)]['inter'] = sample_text + text
+                # if they are both changed, the magnitude has to end up in a landmark
+                if mag_change and der_change:
+                    if mag in self.landmarks:
 
-                        else:
-                            if curr_state['I']['derivative'] == '+':
-                                # here the trace that inflow is getting stronger
-                                self.trace[str(curr_state) + str(new_state)]['inter'] = \
-                                    'The inflow is getting stronger compared to the outflow '\
-                                        'so the derivative of V changes from {} to {}'\
-                                        .format(curr_state['V']['derivative'], new_state['V']['derivative'])
-                            else:
-                                # here the trace that inflow is getting weaker
-                                self.trace[str(curr_state) + str(new_state)]['inter'] = \
-                                    'The inflow is getting weaker compared to the outflow ' \
-                                    'so the derivative of V changes from {} to {}' \
-                                        .format(curr_state['V']['derivative'], new_state['V']['derivative'])
+                        # if the new point is indeed a landmark, then the derivative is allowed to change
+                        if not (mag == '0' or (quan != 'I' and mag == 'max')):
+                            valid_trans.remove(state)
 
-        ###############################
-        # exogenous state transitions #
-        ###############################
+                # final check for ambiguous state transitions
+                if quan == 'I':
+                    # get index of derivative of both states for volume
+                    curr_deriv = self.derivatives.index(curr_state['V']['derivative'])
 
-        subs = defaultdict(list)
-        for quantity, values in curr_state.items():
-            mag = values['magnitude']
-            der = values['derivative']
-            # inflow is exogenous, so can be changed at will, however: follow magnitude changes
-            if quantity == "I":
-
-                # change magnitude
-                # get the index of the current magnitude
-                ind = self.quantities[quantity].index(mag)
-
-                # change the derivative of quantity
-                if der == '+':
-                    new_mag = self.quantities[quantity][min(1, ind + 1)]
-                    subs[quantity].append({'magnitude': new_mag, 'derivative': '0'})
-                elif der == '-':
-                    new_mag = self.quantities[quantity][ind - 1]
-                    subs[quantity].append({'magnitude': new_mag, 'derivative': '0'})
-                else:
-                    subs[quantity].append({'magnitude': mag, 'derivative': '-'})
-                    subs[quantity].append({'magnitude': mag, 'derivative': '+'})
-
-            # keep original values for other quantities, except when on landmark
-            # instead: follow derivative changes
-            else:
-                subs[quantity].append(values)
+                    next_deriv = self.derivatives.index(state['V']['derivative'])
 
 
-        # add the exogenous transitions to the set of possible transitions
-        if exogenous:
+                    # if derivative of inflow is positive, next derivative of volume can not be more
+                    # negative compared to first, except when on max
+                    if curr_state[quan]['derivative'] == '+' or curr_state[quan]['derivative'] == '0':
+                        if next_deriv < curr_deriv:
+                            # when on max, derivative can be lower than previous (since it will no longer increase
+                            # on max)
+                            if state['V']['magnitude'] == 'max' and state['V']['derivative'] == '0':
+                                continue
 
-            for perm in itertools.product(*subs.values()):
+                            try:
+                                valid_trans.remove(state)
+                            except:
+                                pass
 
-                # Create a new state object
-                new_state = {}
-                for i, quantity in enumerate(self.quantities):
-                    new_state[quantity] = perm[i]
+                    if curr_state[quan]['derivative'] == '-' or curr_state[quan]['derivative'] == '0':
+                        if next_deriv > curr_deriv:
+                            # when on 0, derivative can be higher than previous (since it will no longer decrease on 0)
+                            if state['V']['magnitude'] == '0' and state['V']['derivative'] == '0':
+                                continue
+                            try:
+                                valid_trans.remove(state)
+                            except:
+                                pass
 
-                # check if the generated state is among the filtered (possible) states
-                if new_state in self.filtered_states and new_state != curr_state and new_state not in transition_states:
+            # if the volume is on a landmark and the inflow changes, remove the states that have same mag
+            # if curr_state['V']['magnitude'] == '0' and curr_state['I']['magnitude'] != '0':
+            #     if curr_state['V']['magnitude'] == state['V']['magnitude']:
+            #         try:
+            #             valid_trans.remove(state)
+            #         except:
+            #             pass
 
-                    # check if valid over here
-                    transition_states.append(new_state)
 
-                    #######################################
-                    # Leave a trace for exogenous actions #
-                    #######################################
-                    if self.leave_trace:
-                        if self.valid_state([new_state]):
-                            # trace:
-                            self.trace[str(curr_state)+str(new_state)]['inter'] = \
-                                'This state is a result of an exogenous action, '\
-                                    'where a person manually operates the inflow.'
+            # finally, check whether a point is not coming from a landmark and going to a landmark, since this
+            # is impossible
+            if not from_land ^ to_land:
+                try:
+                    valid_trans.remove(state)
+                except:
+                    pass
 
-        # now we have all the possible transitions from a single state!
-        transition_states = self.valid_state(transition_states, curr_state)
+        # take all valid transitions that are left
+        transition_states = valid_trans
+
+        # only point to interval changes can occur (except for exogenous changes)
+        if any(self.from_landmark(curr_state, state, False)
+              for state in transition_states):
+           transition_states = [state for state in transition_states
+                   if self.from_landmark(curr_state, state, True)]
+
 
         return transition_states
 
@@ -498,14 +505,10 @@ class QRModel:
                 # check if there is some magnitude of the quantity in a state
                 # if there is, the derivative of the other quantity should be negative
                 if state[quantity1]['magnitude'] != '0':
-                    #valid = True
                     derivs[quantity2].append(-1)
 
                 else:
                     derivs[quantity2].append(0)
-                    #valid = False
-
-                    # return False
 
         return derivs
 
@@ -668,9 +671,6 @@ def main():
 
     for state in valid_states:
 
-        node_ID[str(state)] = chr(letter)
-        letter += 1
-
         # create node 'name'
         s = "Q | M   D\n--+------\n"
         for quan, values in state.items():
@@ -680,17 +680,10 @@ def main():
         # get all transitions
         next_states = model.transition_states(state)
 
-        print('------------------------')
-        print('NEW STATE')
-        print('-------------------------')
         # store all transitions
         for next_state in next_states:
             transitions[str(state)].append(str(next_state))
-            print('Curr state:')
-            print(state)
-            print()
-            print('Next state:')
-            print(next_state)
+
 
         node_ID[str(state)] = chr(letter)
         letter += 1 
@@ -698,17 +691,28 @@ def main():
     # get all transitions from valid states
     #state graph
 
+    total_length = 0
+    for state_list in transitions.values():
+
+        list2 = list(set(state_list))
+        total_length += len(list2)
+
+    print(total_length)
+
     dot = Digraph('unix', filename='stategraph.gv')
 
     dot.node_attr.update(color='lightblue2', style='filled', shape='box', fontsize='20', fontname='Helvetica', height='0', width='0')
     dot.edge_attr.update(arrowhead='vee', arrowsize='0.5', arrowtail="both")
+
+    # dot.graph_attr.update(size="5,5")
+    # dot.graph_attr.update(fontsize="20")
 
     edges_graph = []
 
     for key, name in nodename.items():
 
         dot.node(node_ID[key], name)
-        
+
         for trans in transitions[key]:
             edges_graph.append(node_ID[key] + node_ID[trans])
 
@@ -716,7 +720,9 @@ def main():
     edges_graph = list(set(edges_graph))
 
     dot.edges(edges_graph)
+    dot.edge('B', 'H', constraint='false')
 
+    print(len(edges_graph))
     dot.view()
 
 

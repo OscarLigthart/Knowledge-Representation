@@ -5,17 +5,13 @@ import copy
 
 
 class QRModel:
-    def __init__(self, quantities, derivatives, proportionality, influence, value_correspondences, leave_trace):
+    def __init__(self, quantities, derivatives, proportionality, influence, value_correspondences):
         self.quantities = quantities
         self.derivatives = derivatives
         self.vc = value_correspondences
         self.proportionality = proportionality
         self.influence = influence
         self.landmarks = ['0', 'max']
-        self.leave_trace = leave_trace
-        self.trace = {}
-        if leave_trace:
-            self.gen_valid_states()
 
     def gen_states(self):
 
@@ -55,7 +51,7 @@ class QRModel:
         # filter states
         self.vc_filter()
 
-        trace_states = self.valid_state(self.filtered_states)
+        trace_states, _ = self.valid_state(self.filtered_states)
 
         # create dictionary for all possible state combinations to keep track of trace
         if self.leave_trace:
@@ -103,7 +99,7 @@ class QRModel:
 
         self.filtered_states = filtered_states
 
-        self.valid_states = self.valid_state(filtered_states)
+        self.valid_states, _ = self.valid_state(filtered_states)
 
         return filtered_states
 
@@ -162,18 +158,6 @@ class QRModel:
 
             if der == '0' and next_state[quantity]['derivative'] != '0':
                 return True
-
-        # for quantity in self.quantities:
-        #     if old_state[quantity][MAGNITUDE] in self.point_values[quantity] \
-        #             and new_state[quantity][MAGNITUDE] != \
-        #             old_state[quantity][MAGNITUDE]:
-        #         return True
-        #
-        #     if skip_exogenous and quantity in self.exogenous_quantities:
-        #         continue
-        #     if old_state[quantity][DERIV] == DerivativeValue.ZERO and \
-        #             new_state[quantity][DERIV] != DerivativeValue.ZERO:
-        #         return True
 
         return False
 
@@ -304,14 +288,6 @@ class QRModel:
                             except:
                                 pass
 
-            # if the volume is on a landmark and the inflow changes, remove the states that have same mag
-            # if curr_state['V']['magnitude'] == '0' and curr_state['I']['magnitude'] != '0':
-            #     if curr_state['V']['magnitude'] == state['V']['magnitude']:
-            #         try:
-            #             valid_trans.remove(state)
-            #         except:
-            #             pass
-
 
             # finally, check whether a point is not coming from a landmark and going to a landmark, since this
             # is impossible
@@ -333,7 +309,7 @@ class QRModel:
 
         return transition_states
 
-    def valid_state(self, states, curr_state = None):
+    def valid_state(self, states):
         """
         This function checks whether a given state is valid according to influence, proportionality and...
         :param state: state to consider
@@ -342,6 +318,8 @@ class QRModel:
         # check influence and proportion ratio
         # see if that is valid --> volume derivative can not be + if there is no inflow
         valid_states = []
+
+        all_derivs = {}
 
         for i, state in enumerate(states):
             # a state needs to be valid according to proportionality and influence
@@ -365,63 +343,27 @@ class QRModel:
                     if state['V']['derivative'] == '0':
                         valid_states.append(state)
 
-                        # trace
-                        if curr_state != None and self.leave_trace:
-
-                            # print('Derivative should be 0 as there is no effect')
-                            self.trace[str(curr_state) + str(state)]['intra'] = \
-                                'Derivative of V should be 0, as there is no influence'
-
-
-                        # sum and check if positive or negative
+                # sum and check if positive or negative
                 elif sum(derivs['V']) > 0:
 
                     # check whether the derivative actually is positive
                     if state['V']['derivative'] == '+':
                         valid_states.append(state)
 
-                        # trace
-                        if curr_state != None and self.leave_trace:
-                            # print('Derivative should be 0 as there is no effect')
-                            self.trace[str(curr_state) + str(state)]['intra'] = \
-                                'Derivative of V should be +, as there is only positive influence'
 
                 elif sum(derivs['V']) < 0:
                     # check whether the derivative actually is negative
                     if state['V']['derivative'] == '-':
                         valid_states.append(state)
 
-                        # trace
-                        if curr_state != None and self.leave_trace:
-                            # print('Derivative should be 0 as there is no effect')
-                            self.trace[str(curr_state) + str(state)]['intra'] = \
-                                'Derivative of V should be -, as there is only negative influence'
-
                 # sum and check if 0
                 elif sum(derivs['V']) == 0:
                     # return state with all derivatives
                     valid_states.append(state)
 
-                    # trace
-                    if curr_state != None and self.leave_trace:
+            all_derivs[str(state)] = derivs
 
-                        #trace
-                        if state['V']['derivative'] == '-':
-                            self.trace[str(curr_state) + str(state)]['intra'] = \
-                                'In this case the outflow is stronger than the inflow, so the derivative of V is -'\
-                                ' (ambiguous)'
-
-                        elif state['V']['derivative'] == '+':
-                            self.trace[str(curr_state) + str(state)]['intra'] = \
-                                'In this case the inflow is stronger than the outflow, so the derivative of V is +'\
-                                ' (ambigous)'
-
-                        else:
-                            self.trace[str(curr_state) + str(state)]['intra'] = \
-                                'In this case the inflow is as strong as the outflow, so the derivative of V is 0' \
-                                ' (ambiguous)'
-
-        return valid_states
+        return valid_states, all_derivs
 
     def find_proportionality(self, state):
         """
@@ -512,6 +454,187 @@ class QRModel:
 
         return derivs
 
+    def gen_trace(self, curr_state, all_derivs, nodename):
+        """ This function generates a trace between the current state and the next state that describes the
+        reasoning behind the transition and the next state """
+
+
+        ######################
+        # Show current state #
+        ######################
+        print('-----------------------------------------------------------------------------')
+        print('Current state')
+        print()
+        print(nodename[str(curr_state)])
+        print()
+
+        #####################
+        # Intra state trace #
+        #####################
+
+        # show the intra state trace of the current state
+        self.intra_trace(curr_state, all_derivs)
+
+        #########################
+        # Show state transition #
+        #########################
+
+        # get all next states
+        trans_states = self.transition_states(curr_state)
+
+        # print inter trace between current state and all of its possible next states
+        for i, next_state in enumerate(trans_states):
+            print()
+            print('TRANSITION {}:'.format(i+1))
+            print()
+            self.inter_trace(curr_state, next_state)
+
+        print()
+        print('-----------------------------------------------------------------------------')
+        print()
+        return
+
+    def intra_trace(self, state, all_derivs):
+
+        print('INTRA-state trace:')
+        print()
+
+        # what to do for the intra-state trace?
+        # influences and proportionalities
+        # need to have the behavioural calculus
+        derivs = all_derivs[str(state)]
+
+        # check for all zeros
+        if all([x == 0 for x in derivs['V']]):
+            # check whether derivative actually is 0
+            if state['V']['derivative'] == '0':
+                print(' - No influence on the volume, so the derivative is 0')
+
+        # sum and check if positive or negative
+        elif sum(derivs['V']) > 0:
+            # check whether the derivative actually is positive
+            if state['V']['derivative'] == '+':
+                print(' - Only the inflow is currently influencing the volume, so the volume derivative is +')
+
+
+        elif sum(derivs['V']) < 0:
+            # check whether the derivative actually is negative
+            if state['V']['derivative'] == '-':
+                print(' - Only the outflow is currently influencing the volume, so the volume derivative is -')
+
+
+        # sum and check if 0
+        elif sum(derivs['V']) == 0:
+            # return state with all derivatives
+            # ambiguity
+            if state['V']['derivative'] == '+':
+                print(' - The inflow and outflow are both influencing the volume, but in this case the inflow is stronger than the outflow.\n'
+                      '   Hence, the water is increasing and the derivative is +')
+
+            elif state['V']['derivative'] == '-':
+                print(' - The inflow and outflow are both influencing the volume, but in this case the outflow is stronger than the inflow.\n'
+                    '   Hence, the water is decreasing and the derivative is -')
+
+            else:
+                print(' - The inflow and outflow are both influencing the volume, but in this case the inflow is as strong as the outflow.\n'
+                    '   Hence, the water is stable (the amount of water coming in is equal to the amount of water flowing out) and the derivative is 0')
+
+        print()
+
+        # show the proportionalities
+        if len(self.quantities) > 3:
+            print(' - The proportionality between volume, outflow, height and pressure cause the derivatives to be the same')
+        else:
+            print(' - The proportionality between volume and outflow cause the derivatives to be the same')
+
+        return
+
+    def inter_trace(self, curr_state, next_state):
+        """
+        This function shows the inter state trace, to help the user understand how and why a certain transition between
+        states is valid
+        :return:
+        """
+
+        s = "Q | M   D          Q | M   D\n--+------          --+------\n"
+        for i, (quan, values) in enumerate(curr_state.items()):
+            if quan == 'V':
+                s += "{} | {:4s}{}  ---->   {} | {:4s}{}\n" \
+                    .format(quan, values['magnitude'], values['derivative'],
+                            quan, next_state[quan]['magnitude'], next_state[quan]['derivative'])
+            else:
+                s += "{} | {:4s}{}          {} | {:4s}{}\n" \
+                    .format(quan, values['magnitude'], values['derivative'],
+                            quan, next_state[quan]['magnitude'], next_state[quan]['derivative'])
+
+        print(s)
+
+        ################
+        # Inter states #
+        ################
+
+        print('INTER-state trace:')
+        print()
+
+        # Exogenous actions
+
+        # check the inflow derivative change
+        # get derivative indices
+        curr_der_ind = self.derivatives.index(curr_state['I']['derivative'])
+        next_der_ind = self.derivatives.index(next_state['I']['derivative'])
+
+        if curr_der_ind < next_der_ind and next_der_ind != 1:
+            print(
+                ' - In this transition a user performs an exogenous action where the inflow starts increasing by further opening up the tap')
+        elif next_der_ind < curr_der_ind and next_der_ind != 1:
+            print(
+                ' - In this transition a user performs an exogenous action where the inflow starts decreasing by closing up the tap')
+        elif curr_der_ind < next_der_ind:
+            print(
+                ' - In this transition a user performs an exogenous action where the inflow stops decreasing by further opening up the tap')
+        elif next_der_ind < curr_der_ind:
+            print(
+                ' - In this transition a user performs an exogenous action where the inflow stops increasing by closing up the tap')
+        else:
+            print(' - No exogenous action is performed')
+
+        # derivative
+        # check for changes in magnitude
+        for quantity in self.quantities:
+            if curr_state[quantity]['magnitude'] != next_state[quantity]['magnitude']:
+                print(' - The magnitude of {} is changed from {} to {}, due to a derivative of {}' \
+                      .format(quantity, curr_state[quantity]['magnitude'], next_state[quantity]['magnitude'],
+                              curr_state[quantity]['derivative']))
+
+        if curr_state['V']['derivative'] == '-' \
+                and curr_state[quantity]['magnitude'] != next_state[quantity]['magnitude']:
+            print()
+            print(
+                '  *** The derivative is negative so the water is flowing out of the tub, hence magnitude decreases ***')
+        elif curr_state['V']['derivative'] == '+' \
+                and curr_state[quantity]['magnitude'] != next_state[quantity]['magnitude']:
+            print()
+            print(
+                '  *** The derivative is positive so the water is flowing into the tub, hence magnitude increases ***')
+
+        if curr_state['V']['magnitude'] != next_state['V']['magnitude']:
+            if next_state['V']['magnitude'] == 'max':
+                print()
+                print(
+                    '  *** The derivatives change to 0 because the bath is already full and thus the volume can not keep increasing ***')
+
+            elif next_state['V']['magnitude'] == '0':
+                print()
+                print(
+                    '  *** The derivatives change to 0 because the bath is already empty and thus the volume can not keep decreasing ***')
+        else:
+            if len(self.quantities) > 3:
+                print(
+                    ' - The amount of water in the tub remains the same, so no changes for volume, outflow, height or pressure')
+            else:
+                print(' - The amount of water in the tub remains the same, so no changes for volume or outflow')
+
+        return
 
 def main():
 
@@ -575,89 +698,16 @@ def main():
 
         value_correspondence = [vc1, vc2, vc3, vc4, vc5, vc6]
 
-    """
-    model = QRModel(quantities, derivatives, props, influences, value_correspondence, True)
-    states = model.gen_states()
-    filtered_states = model.vc_filter()
-
-    transitions = model.transition_states(filtered_states[0])
-
-    print('---------------------------------')
-    print('Possible state to transition to:')
-    print('---------------------------------')
-
-    print(transitions)
-
-    #print(transitions)
-
-    trans3 = model.transition_states(transitions[0])
-
-    print('---------------------------------')
-    print('Possible state to transition to:')
-    print('---------------------------------')
-
-    for tr in trans3:
-
-        print('INTER STATE trace:')
-        print(model.trace[str(transitions[0]) + str(tr)]['inter'])
-
-        print()
-        print('INTRA STATE trace:')
-        print(model.trace[str(transitions[0]) + str(tr)]['intra'])
-        print()
-        print(tr)
-        print()
-
-    bla = trans3[0]
-    trans3 = model.transition_states(trans3[0])
-
-    print('---------------------------------')
-    print('Possible state to transition to:')
-    print('---------------------------------')
-
-    for tr in trans3:
-        print('INTER STATE trace:')
-        print(model.trace[str(bla) + str(tr)]['inter'])
-
-        print()
-        print('INTRA STATE trace:')
-        print(model.trace[str(bla) + str(tr)]['intra'])
-        print()
-        print(tr)
-        print()
-
-    bla = trans3[0]
-    trans3 = model.transition_states(trans3[0])
-
-    print('---------------------------------')
-    print('Possible state to transition to:')
-    print('---------------------------------')
-
-    for tr in trans3:
-        print()
-        print(tr)
-        print()
-        print('INTER STATE trace:')
-        print(model.trace[str(bla) + str(tr)]['inter'])
-
-        print()
-        print('INTRA STATE trace:')
-        print(model.trace[str(bla) + str(tr)]['intra'])
-        print()
-        print(tr)
-        print()
-        
-    """
 
     # create model
-    model = QRModel(quantities, derivatives, props, influences, value_correspondence, True)
+    model = QRModel(quantities, derivatives, props, influences, value_correspondence)
 
     # generate and filter all states
     states = model.gen_states()
     filtered_states = model.vc_filter()
 
     # get all valid states to create nodes
-    valid_states = model.valid_state(filtered_states)
+    valid_states, all_derivs = model.valid_state(filtered_states)
 
     print(len(valid_states))
 
@@ -684,9 +734,18 @@ def main():
         for next_state in next_states:
             transitions[str(state)].append(str(next_state))
 
-
         node_ID[str(state)] = chr(letter)
         letter += 1 
+
+    # generate trace
+    generate_trace = True
+    if generate_trace:
+        # loop through valid states
+        for state in valid_states:
+            # generate the intra state trace and the inter state trace between this state and all its transitions
+            model.gen_trace(state, all_derivs, nodename)
+
+
 
     # get all transitions from valid states
     #state graph
@@ -703,9 +762,6 @@ def main():
 
     dot.node_attr.update(color='lightblue2', style='filled', shape='box', fontsize='20', fontname='Helvetica', height='0', width='0')
     dot.edge_attr.update(arrowhead='vee', arrowsize='0.5', arrowtail="both")
-
-    # dot.graph_attr.update(size="5,5")
-    # dot.graph_attr.update(fontsize="20")
 
     edges_graph = []
 

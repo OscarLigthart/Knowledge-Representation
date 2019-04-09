@@ -193,60 +193,60 @@ O | max 0
 H | max 0
 P | max 0
 "]
-	E -> D
-	L -> S
 	L -> E
-	C -> A
-	F -> D
-	L -> V
-	D -> P
-	O -> V
-	P -> N
-	R -> V
-	F -> P
-	U -> W
-	N -> Q
-	U -> J
-	G -> L
 	H -> I
-	U -> P
-	U -> S
-	M -> J
-	H -> O
+	L -> S
+	O -> V
+	G -> L
 	K -> J
-	R -> X
-	L -> U
-	Q -> R
-	H -> L
-	X -> V
+	S -> J
+	D -> P
+	E -> F
+	L -> N
+	B -> I
+	U -> W
+	P -> M
 	R -> O
+	U -> J
+	I -> R
+	H -> O
+	H -> L
+	A -> B
+	L -> V
 	T -> S
-	M -> P
-	U -> M
+	J -> C
+	J -> A
+	F -> W
 	H -> R
+	N -> K
+	R -> X
+	C -> A
+	X -> V
+	E -> C
+	L -> K
+	N -> Q
+	O -> L
+	U -> S
+	Q -> R
+	F -> D
+	P -> N
+	M -> P
+	U -> P
+	H -> G
+	L -> U
+	O -> R
+	U -> M
+	E -> D
+	V -> X
 	L -> T
+	C -> D
+	L -> O
+	R -> V
+	M -> J
+	W -> P
+	F -> P
+	J -> M
 	V -> T
 	P -> Q
-	O -> L
-	W -> P
-	O -> R
-	P -> M
-	S -> J
-	C -> D
-	N -> K
-	V -> X
-	B -> I
-	E -> F
-	F -> W
-	J -> A
-	L -> K
-	L -> O
-	J -> C
-	J -> M
-	L -> N
-	I -> R
-	E -> C
-	H -> G
-	A -> B
 	B -> H [constraint=false]
 }

@@ -1,6 +1,6 @@
 digraph unix {
 	node [color=lightblue2 fontname=Helvetica fontsize=20 height=0 shape=box style=filled width=0]
-	edge [arrowhead=vee arrowsize=0.5 arrowtail=both]
+	edge [arrowhead=vee arrowsize=1 arrowtail=both]
 	A [label="Q | M   D
 --+------
 I | 0   0
@@ -145,60 +145,60 @@ I | +   +
 V | max 0
 O | max 0
 "]
-	R -> X
-	H -> R
-	H -> L
-	C -> A
-	R -> O
-	F -> D
 	H -> O
-	L -> N
-	M -> P
-	N -> K
-	U -> M
-	C -> D
-	V -> T
-	J -> M
-	O -> V
-	R -> V
-	L -> K
-	D -> P
+	S -> J
+	V -> X
+	E -> F
+	R -> O
+	U -> W
 	G -> L
-	J -> C
+	N -> Q
+	E -> C
+	C -> D
+	W -> P
+	H -> R
+	M -> J
+	P -> N
+	D -> P
+	V -> T
+	I -> R
+	N -> K
+	A -> B
+	O -> V
+	F -> D
+	U -> M
+	T -> S
+	F -> P
 	L -> V
-	P -> Q
+	O -> L
+	L -> S
+	L -> K
+	R -> X
+	X -> V
+	H -> I
+	F -> W
+	H -> L
+	J -> M
+	P -> M
+	H -> G
+	J -> C
+	L -> T
+	L -> N
+	R -> V
 	Q -> R
 	L -> O
-	S -> J
-	M -> J
-	F -> P
-	A -> B
-	T -> S
-	W -> P
-	P -> N
-	U -> P
-	B -> I
-	U -> S
-	K -> J
-	H -> G
 	J -> A
-	U -> W
-	E -> D
-	O -> L
-	P -> M
-	U -> J
-	L -> T
-	V -> X
-	L -> E
-	H -> I
-	I -> R
-	X -> V
-	N -> Q
+	U -> P
+	M -> P
+	U -> S
 	L -> U
-	F -> W
 	O -> R
-	L -> S
-	E -> C
-	E -> F
+	E -> D
+	L -> E
+	K -> J
+	C -> A
+	U -> J
+	P -> Q
+	B -> I
 	B -> H [constraint=false]
 }

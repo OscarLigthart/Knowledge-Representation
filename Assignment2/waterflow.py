@@ -18,9 +18,6 @@ class QRModel:
 
         """Generate all possible states"""
 
-        #all_permutations = [self.quantities['I'], self.quantities['V'], self.quantities['O'],
-        #                    self.derivatives, self.derivatives, self.derivatives]
-
         all_permutations = []
 
         for key, value in self.quantities.items():
@@ -52,14 +49,9 @@ class QRModel:
         # filter states
         self.vc_filter()
 
+        # get valid states
         trace_states, _ = self.valid_state(self.filtered_states)
 
-        # create dictionary for all possible state combinations to keep track of trace
-        if self.leave_trace:
-            for state1 in trace_states:
-                for state2 in trace_states:
-                    if state1 != state2:
-                        self.trace[str(state1) + str(state2)] = {}
 
 
     def vc_filter(self):
@@ -429,7 +421,6 @@ class QRModel:
             if relation == 'I+':
                 # check if there is some magnitude of the quantity in a state
                 # if there is, the derivative of the other quantity should be positive
-                #if state[quantity1]['magnitude'] != '0' and state[quantity2]['derivative'] == '+':
                 if state[quantity1]['magnitude'] != '0':
                     # return the type of influence
                     derivs[quantity2].append(1)
@@ -657,8 +648,8 @@ class QRModel:
 
         return
 
-def main(ARGS):
 
+def main():
 
     # Quantity spaces:
     # inflow [0,+]
@@ -739,7 +730,6 @@ def main(ARGS):
     for state in valid_states:
 
         # create node 'name'
-        #s = "    State " + str(letter-64) +"    \n"
         s = "Q | M   D\n--+------\n"
         for quan, values in state.items():
             s += "{} | {:4s}{}\n".format(quan, values['magnitude'], values['derivative'])
@@ -778,7 +768,7 @@ def main(ARGS):
     dot = Digraph('unix', filename='stategraph.gv')
 
     dot.node_attr.update(color='lightblue2', style='filled', shape='box', fontsize='20', fontname='Helvetica', height='0', width='0')
-    dot.edge_attr.update(arrowhead='vee', arrowsize='0.5', arrowtail="both")
+    dot.edge_attr.update(arrowhead='vee', arrowsize='1', arrowtail="both")
 
     edges_graph = []
 
@@ -788,7 +778,6 @@ def main(ARGS):
 
         for trans in transitions[key]:
             edges_graph.append(node_ID[key] + node_ID[trans])
-
 
     edges_graph = list(set(edges_graph))
 
@@ -813,5 +802,5 @@ if __name__ == "__main__":
 
     ARGS = parser.parse_args()
 
-    main(ARGS)
+    main()
 

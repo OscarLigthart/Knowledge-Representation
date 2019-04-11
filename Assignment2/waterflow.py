@@ -2,6 +2,7 @@ import itertools
 from collections import defaultdict
 from graphviz import Digraph
 import copy
+import argparse
 
 
 class QRModel:
@@ -306,12 +307,11 @@ class QRModel:
            transition_states = [state for state in transition_states
                    if self.from_landmark(curr_state, state, True)]
 
-
         return transition_states
 
     def valid_state(self, states):
         """
-        This function checks whether a given state is valid according to influence, proportionality and...
+        This function checks whether a given state is valid according to influence and proportionality
         :param state: state to consider
         :return:
         """
@@ -382,7 +382,7 @@ class QRModel:
             relation = prop[1]
             quantity2 = prop[2]
 
-            # when something is proportional, the derivatives need to be the same
+            # when something is proportional, one derivative affects the derivative of the other quantity
             if relation == 'P-':
                 # the derivatives have to be opposite to each other in this case
                 # find the index of the derivative and
@@ -396,6 +396,7 @@ class QRModel:
                 else:
                     check.append(False)
 
+            # the derivative has to be the same if the proportional relationship is positive
             elif relation == 'P+':
                 if state[quantity1]['derivative'] == state[quantity2]['derivative'] and \
                         state[quantity1]['magnitude'] == state[quantity2]['magnitude']:
@@ -413,10 +414,10 @@ class QRModel:
         :return:
         """
 
+        # initiate influences
         influences = self.influence
 
-        #valid = False
-
+        # create variable to keep track of calculus matrices
         derivs = defaultdict(list)
 
         for inf in influences:
@@ -431,15 +432,12 @@ class QRModel:
                 #if state[quantity1]['magnitude'] != '0' and state[quantity2]['derivative'] == '+':
                 if state[quantity1]['magnitude'] != '0':
                     # return the type of influence
-                    #valid = True
                     derivs[quantity2].append(1)
 
                 # if it is 0 there is no influence
                 else:
-                    derivs[quantity2].append(0)
                     # return the type of influence
-                    #valid = False
-                    #return False
+                    derivs[quantity2].append(0)
 
             # check for negative influence
             elif relation == 'I-':
@@ -463,7 +461,7 @@ class QRModel:
         # Show current state #
         ######################
         print('-----------------------------------------------------------------------------')
-        print('Current state')
+        print('CURRENT STATE')
         print()
         print(nodename[str(curr_state)])
         print()
@@ -529,23 +527,22 @@ class QRModel:
             # ambiguity
             if state['V']['derivative'] == '+':
                 print(' - The inflow and outflow are both influencing the volume, but in this case the inflow is stronger than the outflow.\n'
-                      '   Hence, the water is increasing and the derivative is +')
+                      '   Hence, the water is increasing and the derivative of the volume is +.')
 
             elif state['V']['derivative'] == '-':
                 print(' - The inflow and outflow are both influencing the volume, but in this case the outflow is stronger than the inflow.\n'
-                    '   Hence, the water is decreasing and the derivative is -')
+                    '   Hence, the water is decreasing and the derivative of the volume is -.')
 
             else:
                 print(' - The inflow and outflow are both influencing the volume, but in this case the inflow is as strong as the outflow.\n'
-                    '   Hence, the water is stable (the amount of water coming in is equal to the amount of water flowing out) and the derivative is 0')
-
-        print()
+                    '   Hence, the water is stable (the amount of water coming in is equal to the amount of water flowing out) and the derivative \n'
+                    '   of the volume is 0.')
 
         # show the proportionalities
         if len(self.quantities) > 3:
-            print(' - The proportionality between volume, outflow, height and pressure cause the derivatives to be the same')
+            print(' - The proportionality between volume, outflow, height and pressure cause the derivatives to be the same.')
         else:
-            print(' - The proportionality between volume and outflow cause the derivatives to be the same')
+            print(' - The proportionality between volume and outflow cause the derivatives to be the same.')
 
         return
 
@@ -582,8 +579,12 @@ class QRModel:
         # get derivative indices
         curr_der_ind = self.derivatives.index(curr_state['I']['derivative'])
         next_der_ind = self.derivatives.index(next_state['I']['derivative'])
+        next_mag = next_state['I']['magnitude']
 
-        if curr_der_ind < next_der_ind and next_der_ind != 1:
+        # check if inflow will be empty
+        if next_mag == '0' and curr_der_ind != next_der_ind:
+            print(' - In this transition the inflow has decreased to the point where the tap is fully closed.')
+        elif curr_der_ind < next_der_ind and next_der_ind != 1:
             print(
                 ' - In this transition a user performs an exogenous action where the inflow starts increasing by further opening up the tap')
         elif next_der_ind < curr_der_ind and next_der_ind != 1:
@@ -591,10 +592,10 @@ class QRModel:
                 ' - In this transition a user performs an exogenous action where the inflow starts decreasing by closing up the tap')
         elif curr_der_ind < next_der_ind:
             print(
-                ' - In this transition a user performs an exogenous action where the inflow stops decreasing by further opening up the tap')
+                ' - In this transition a user performs an exogenous action where the inflow stops decreasing by further opening up the tap.')
         elif next_der_ind < curr_der_ind:
             print(
-                ' - In this transition a user performs an exogenous action where the inflow stops increasing by closing up the tap')
+                ' - In this transition a user performs an exogenous action where the inflow stops increasing by closing up the tap.')
         else:
             print(' - No exogenous action is performed')
 
@@ -618,25 +619,45 @@ class QRModel:
                 '  *** The derivative is positive so the water is flowing into the tub, hence magnitude increases ***')
 
         if curr_state['V']['magnitude'] != next_state['V']['magnitude']:
-            if next_state['V']['magnitude'] == 'max':
+            if next_state['V']['magnitude'] == 'max' and next_state['V']['derivative'] == '0':
                 print()
                 print(
                     '  *** The derivatives change to 0 because the bath is already full and thus the volume can not keep increasing ***')
+            elif next_state['V']['magnitude'] == 'max':
+                print()
+                print(
+                    '  *** The derivatives change to - because once the bath is full the outflow is stronger than the inflow\n'
+                    '      and thus the volume will start decreasing ***')
 
-            elif next_state['V']['magnitude'] == '0':
+
+            elif next_state['V']['magnitude'] == '0' and next_state['V']['derivative'] == '0':
                 print()
                 print(
                     '  *** The derivatives change to 0 because the bath is already empty and thus the volume can not keep decreasing ***')
-        else:
-            if len(self.quantities) > 3:
+            elif next_state['V']['magnitude'] == '0':
+                print()
                 print(
-                    ' - The amount of water in the tub remains the same, so no changes for volume, outflow, height or pressure')
+                    '  *** The derivatives change to + because once the bath is empty there is no longer any outflow.\n'
+                    '      Hence, the inflow becomes the only influence on the volume and th volume will start increasing ***')
+        else:
+            if curr_state['V']['derivative'] == '+' and\
+                    (curr_state['V']['magnitude'] != 'max' or curr_state['V']['magnitude'] != '0'):
+                print(' - While the magnitude remains the same, the amount of water is increasing. Due to the fact that the magnitude\n'
+                      '   of + is an interval, this does not become apparent in the magnitude, while it is indeed actually happening.')
+
+            elif curr_state['V']['derivative'] == '-':
+                print(' - While the magnitude remains the same, the amount of water is decreasing. Due to the fact that the magnitude\n'
+                    '   of + is an interval, this does not become apparent in the magnitude, while it is indeed actually happening.')
+
             else:
-                print(' - The amount of water in the tub remains the same, so no changes for volume or outflow')
+                if len(self.quantities) > 3:
+                    print(' - The amount of water in the tub remains the same, so no changes for volume, outflow, height or pressure.')
+                else:
+                    print(' - The amount of water in the tub remains the same, so no changes for volume or outflow.')
 
         return
 
-def main():
+def main(ARGS):
 
 
     # Quantity spaces:
@@ -673,8 +694,7 @@ def main():
     vc2 = ["V", "0", "O", "0"]
     value_correspondence = [vc1, vc2]
 
-    extension = True
-    if extension:
+    if ARGS.extended:
         quantities.update({
             "H": ["0", "+", "max"],
             "P": ["0", "+", "max"]
@@ -698,7 +718,6 @@ def main():
 
         value_correspondence = [vc1, vc2, vc3, vc4, vc5, vc6]
 
-
     # create model
     model = QRModel(quantities, derivatives, props, influences, value_correspondence)
 
@@ -708,8 +727,6 @@ def main():
 
     # get all valid states to create nodes
     valid_states, all_derivs = model.valid_state(filtered_states)
-
-    print(len(valid_states))
 
     nodename = {}
 
@@ -722,6 +739,7 @@ def main():
     for state in valid_states:
 
         # create node 'name'
+        #s = "    State " + str(letter-64) +"    \n"
         s = "Q | M   D\n--+------\n"
         for quan, values in state.items():
             s += "{} | {:4s}{}\n".format(quan, values['magnitude'], values['derivative'])
@@ -738,25 +756,24 @@ def main():
         letter += 1 
 
     # generate trace
-    generate_trace = True
-    if generate_trace:
+    if ARGS.trace:
         # loop through valid states
         for state in valid_states:
             # generate the intra state trace and the inter state trace between this state and all its transitions
             model.gen_trace(state, all_derivs, nodename)
 
+        print('Number of states before pruning: {}'.format(len(model.all_states)))
+        print('Number of states after pruning: {}'.format(len(model.valid_states)))
 
-
-    # get all transitions from valid states
-    #state graph
+    ######################
+    # Create state graph #
+    ######################
 
     total_length = 0
     for state_list in transitions.values():
 
         list2 = list(set(state_list))
         total_length += len(list2)
-
-    print(total_length)
 
     dot = Digraph('unix', filename='stategraph.gv')
 
@@ -778,8 +795,25 @@ def main():
     dot.edges(edges_graph)
     dot.edge('B', 'H', constraint='false')
 
-    print(len(edges_graph))
-    dot.view()
+    if ARGS.trace:
+        print('Number of transitions: {}'.format(len(edges_graph)))
+
+    if ARGS.graph:
+        dot.view()
 
 
-main()
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--extended', default=0, type=int,
+                        help="Run algorithm on extended system")
+    parser.add_argument('--graph', default=1, type=int,
+                        help='Ask algorithm to create the state graph')
+    parser.add_argument('--trace', default=1, type=int,
+                        help='Ask algorithm to leave a trace')
+
+    ARGS = parser.parse_args()
+
+    main(ARGS)
+

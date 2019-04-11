@@ -6,247 +6,199 @@ digraph unix {
 I | 0   0
 V | 0   0
 O | 0   0
-H | 0   0
-P | 0   0
 "]
 	B [label="Q | M   D
 --+------
 I | 0   +
 V | 0   0
 O | 0   0
-H | 0   0
-P | 0   0
 "]
 	C [label="Q | M   D
 --+------
 I | 0   0
 V | +   -
 O | +   -
-H | +   -
-P | +   -
 "]
 	D [label="Q | M   D
 --+------
 I | 0   +
 V | +   -
 O | +   -
-H | +   -
-P | +   -
 "]
 	E [label="Q | M   D
 --+------
 I | 0   0
 V | max -
 O | max -
-H | max -
-P | max -
 "]
 	F [label="Q | M   D
 --+------
 I | 0   +
 V | max -
 O | max -
-H | max -
-P | max -
 "]
 	G [label="Q | M   D
 --+------
 I | +   -
 V | 0   +
 O | 0   +
-H | 0   +
-P | 0   +
 "]
 	H [label="Q | M   D
 --+------
 I | +   0
 V | 0   +
 O | 0   +
-H | 0   +
-P | 0   +
 "]
 	I [label="Q | M   D
 --+------
 I | +   +
 V | 0   +
 O | 0   +
-H | 0   +
-P | 0   +
 "]
 	J [label="Q | M   D
 --+------
 I | +   -
 V | +   -
 O | +   -
-H | +   -
-P | +   -
 "]
 	K [label="Q | M   D
 --+------
 I | +   -
 V | +   0
 O | +   0
-H | +   0
-P | +   0
 "]
 	L [label="Q | M   D
 --+------
 I | +   -
 V | +   +
 O | +   +
-H | +   +
-P | +   +
 "]
 	M [label="Q | M   D
 --+------
 I | +   0
 V | +   -
 O | +   -
-H | +   -
-P | +   -
 "]
 	N [label="Q | M   D
 --+------
 I | +   0
 V | +   0
 O | +   0
-H | +   0
-P | +   0
 "]
 	O [label="Q | M   D
 --+------
 I | +   0
 V | +   +
 O | +   +
-H | +   +
-P | +   +
 "]
 	P [label="Q | M   D
 --+------
 I | +   +
 V | +   -
 O | +   -
-H | +   -
-P | +   -
 "]
 	Q [label="Q | M   D
 --+------
 I | +   +
 V | +   0
 O | +   0
-H | +   0
-P | +   0
 "]
 	R [label="Q | M   D
 --+------
 I | +   +
 V | +   +
 O | +   +
-H | +   +
-P | +   +
 "]
 	S [label="Q | M   D
 --+------
 I | +   -
 V | max -
 O | max -
-H | max -
-P | max -
 "]
 	T [label="Q | M   D
 --+------
 I | +   -
 V | max 0
 O | max 0
-H | max 0
-P | max 0
 "]
 	U [label="Q | M   D
 --+------
 I | +   0
 V | max -
 O | max -
-H | max -
-P | max -
 "]
 	V [label="Q | M   D
 --+------
 I | +   0
 V | max 0
 O | max 0
-H | max 0
-P | max 0
 "]
 	W [label="Q | M   D
 --+------
 I | +   +
 V | max -
 O | max -
-H | max -
-P | max -
 "]
 	X [label="Q | M   D
 --+------
 I | +   +
 V | max 0
 O | max 0
-H | max 0
-P | max 0
 "]
+	R -> X
+	H -> R
+	H -> L
+	C -> A
+	R -> O
+	F -> D
+	H -> O
+	L -> N
+	M -> P
+	N -> K
+	U -> M
+	C -> D
+	V -> T
+	J -> M
+	O -> V
+	R -> V
+	L -> K
+	D -> P
+	G -> L
+	J -> C
+	L -> V
+	P -> Q
+	Q -> R
+	L -> O
+	S -> J
+	M -> J
+	F -> P
+	A -> B
+	T -> S
+	W -> P
+	P -> N
+	U -> P
+	B -> I
+	U -> S
+	K -> J
+	H -> G
+	J -> A
+	U -> W
+	E -> D
+	O -> L
+	P -> M
+	U -> J
+	L -> T
+	V -> X
 	L -> E
 	H -> I
-	L -> S
-	O -> V
-	G -> L
-	K -> J
-	S -> J
-	D -> P
-	E -> F
-	L -> N
-	B -> I
-	U -> W
-	P -> M
-	R -> O
-	U -> J
 	I -> R
-	H -> O
-	H -> L
-	A -> B
-	L -> V
-	T -> S
-	J -> C
-	J -> A
-	F -> W
-	H -> R
-	N -> K
-	R -> X
-	C -> A
 	X -> V
-	E -> C
-	L -> K
 	N -> Q
-	O -> L
-	U -> S
-	Q -> R
-	F -> D
-	P -> N
-	M -> P
-	U -> P
-	H -> G
 	L -> U
+	F -> W
 	O -> R
-	U -> M
-	E -> D
-	V -> X
-	L -> T
-	C -> D
-	L -> O
-	R -> V
-	M -> J
-	W -> P
-	F -> P
-	J -> M
-	V -> T
-	P -> Q
+	L -> S
+	E -> C
+	E -> F
 	B -> H [constraint=false]
 }

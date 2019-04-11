@@ -6,14 +6,14 @@ During this project we build a qualitative reasoning algorithm is described that
 ### Prerequisites
 
 - Graphviz `pip install graphviz`
-
+---
  :exclamation:**important**:exclamation: Graphviz also needs to be installed on your system in order to run. 
  * For *Linux* install via terminal: `sudo apt-get install graphviz`
  * For *Windows* go to  `https://www.graphviz.org/download/` 
 	 * Download  *Stable 2.38 Windows install packages*
 	 * Set a PATH to the folder "bin" within the downloaded folder
 		 * Example: `C:\Program Files (x86)\graphviz-2.38\bin`
-
+---
 ### Installing
 
 #### Clone

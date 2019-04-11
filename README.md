@@ -1,5 +1,5 @@
 #  Knowledge Representation Qualitative Reasoning 
-### Qualitative model of a container system 
+### Qualitative model of a water container system 
 During this project we build a qualitative reasoning algorithm that is able to reason about a simple physical system: a container that can be filled with water (e.g. via a tap) and emptied (e.g. via a drain). The algorithm is able to provide a state-graph, showing all possible behaviours of the system. Moreover, the algorithm is able to provide an insightful trace, helping the user understand why these behaviours can occur in the system. 
 
 ## Getting Started

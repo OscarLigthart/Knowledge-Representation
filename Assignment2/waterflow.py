@@ -802,8 +802,6 @@ def main(ARGS):
         dot.view()
 
 
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--extended', default=0, type=int,

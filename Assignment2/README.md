@@ -22,6 +22,7 @@ Clone this repository to your local machine:
 - HTTPS `https://github.com/OscarLigthart/Knowledge-Representation.git`
 -  SSH `git@github.com:OscarLigthart/Knowledge-Representation.git`
 
+---
 #### USAGE
 
 Open your terminal in the repository "Assignment2"
@@ -33,6 +34,8 @@ For the algorithm to run on the extended system use:
 Type in your command window: `python waterflow.py --extended "1"`
 
 A state-graph will appear in the folder in the form of a .pdf file and the trace will be printed to the terminal.
+
+---
 
 ## Built With
 

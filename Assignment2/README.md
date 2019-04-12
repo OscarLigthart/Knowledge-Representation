@@ -35,6 +35,10 @@ Type in your command window: `python waterflow.py --extended "1"`
 
 A state-graph will appear in the folder in the form of a .pdf file and the trace will be printed to the terminal.
 
+
+:exclamation: If you encounter any problems during running, please contact us at:
+* oscar.ligthart@student.uva.nl
+
 ---
 
 ## Built With

@@ -447,7 +447,6 @@ class QRModel:
         """ This function generates a trace between the current state and the next state that describes the
         reasoning behind the transition and the next state """
 
-
         ######################
         # Show current state #
         ######################
@@ -489,8 +488,8 @@ class QRModel:
         print()
 
         # what to do for the intra-state trace?
-        # influences and proportionalities
-        # need to have the behavioural calculus
+        # -> influences and proportionalities
+        # -> need to have the behavioural calculus
         derivs = all_derivs[str(state)]
 
         # check for all zeros
@@ -505,12 +504,10 @@ class QRModel:
             if state['V']['derivative'] == '+':
                 print(' - Only the inflow is currently influencing the volume, so the volume derivative is +')
 
-
         elif sum(derivs['V']) < 0:
             # check whether the derivative actually is negative
             if state['V']['derivative'] == '-':
                 print(' - Only the outflow is currently influencing the volume, so the volume derivative is -')
-
 
         # sum and check if 0
         elif sum(derivs['V']) == 0:
@@ -590,7 +587,8 @@ class QRModel:
         else:
             print(' - No exogenous action is performed')
 
-        # derivative
+        # derivatives
+
         # check for changes in magnitude
         for quantity in self.quantities:
             if curr_state[quantity]['magnitude'] != next_state[quantity]['magnitude']:
@@ -727,6 +725,7 @@ def main():
 
     letter = 65 #ascii
 
+    # for all the valid states, get the transition states
     for state in valid_states:
 
         # create node 'name'
@@ -752,6 +751,7 @@ def main():
             # generate the intra state trace and the inter state trace between this state and all its transitions
             model.gen_trace(state, all_derivs, nodename)
 
+        # leave a trace for pruning
         print('Number of states before pruning: {}'.format(len(model.all_states)))
         print('Number of states after pruning: {}'.format(len(model.valid_states)))
 
@@ -772,10 +772,12 @@ def main():
 
     edges_graph = []
 
+    # get all nodes
     for key, name in nodename.items():
 
         dot.node(node_ID[key], name)
 
+        # determine the edges using the transitions
         for trans in transitions[key]:
             edges_graph.append(node_ID[key] + node_ID[trans])
 
